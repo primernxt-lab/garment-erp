@@ -1,0 +1,2470 @@
+import { useState, useCallback } from "react";
+
+// ═══════════════════════════════════════════════════════════════
+// INITIAL MASTER DATA
+// ═══════════════════════════════════════════════════════════════
+
+const INIT_FABRICS = [
+  { id: "F001", name: "Cotton Jersey 180gsm", type: "Knit", unit: "m", costPerUnit: 85, supplier: "S001" },
+  { id: "F002", name: "Woven Poplin 100%C", type: "Woven", unit: "m", costPerUnit: 120, supplier: "S002" },
+  { id: "F003", name: "Polyester Interlock", type: "Knit", unit: "m", costPerUnit: 65, supplier: "S001" },
+  { id: "F004", name: "Cotton Drill", type: "Woven", unit: "m", costPerUnit: 95, supplier: "S002" },
+];
+
+const INIT_ACCESSORIES = [
+  { id: "A001", name: "Button 20mm", unit: "pcs", costPerUnit: 3, supplier: "S003" },
+  { id: "A002", name: "Zipper YKK 30cm", unit: "pcs", costPerUnit: 22, supplier: "S003" },
+  { id: "A003", name: "Elastic Band 3cm", unit: "m", costPerUnit: 12, supplier: "S003" },
+  { id: "A004", name: "Woven Label", unit: "pcs", costPerUnit: 4, supplier: "S004" },
+  { id: "A005", name: "Main Label", unit: "pcs", costPerUnit: 2, supplier: "S004" },
+  { id: "A006", name: "Thread Spun 40s", unit: "spool", costPerUnit: 28, supplier: "S003" },
+  { id: "A007", name: "Hang Tag", unit: "set", costPerUnit: 5, supplier: "S004" },
+  { id: "A008", name: "Poly Bag", unit: "pcs", costPerUnit: 3, supplier: "S004" },
+];
+
+const INIT_PATTERNS = [
+  {
+    id: "P001", name: "Basic T-Shirt", category: "Tops",
+    fabricId: "F001", fabricPerUnit: 1.8,
+    accessories: [
+      { accId: "A004", qtyPerUnit: 1 }, { accId: "A005", qtyPerUnit: 1 },
+      { accId: "A006", qtyPerUnit: 0.2 }, { accId: "A007", qtyPerUnit: 1 },
+      { accId: "A008", qtyPerUnit: 1 },
+    ],
+    laborCut: 12, laborSew: 25, laborQC: 8,
+  },
+  {
+    id: "P002", name: "Polo Shirt", category: "Tops",
+    fabricId: "F001", fabricPerUnit: 2.0,
+    accessories: [
+      { accId: "A001", qtyPerUnit: 3 }, { accId: "A004", qtyPerUnit: 1 },
+      { accId: "A005", qtyPerUnit: 1 }, { accId: "A006", qtyPerUnit: 0.3 },
+      { accId: "A007", qtyPerUnit: 1 }, { accId: "A008", qtyPerUnit: 1 },
+    ],
+    laborCut: 15, laborSew: 40, laborQC: 10,
+  },
+  {
+    id: "P003", name: "Woven Shirt", category: "Tops",
+    fabricId: "F002", fabricPerUnit: 2.4,
+    accessories: [
+      { accId: "A001", qtyPerUnit: 7 }, { accId: "A004", qtyPerUnit: 1 },
+      { accId: "A005", qtyPerUnit: 1 }, { accId: "A006", qtyPerUnit: 0.4 },
+      { accId: "A007", qtyPerUnit: 1 }, { accId: "A008", qtyPerUnit: 1 },
+    ],
+    laborCut: 18, laborSew: 55, laborQC: 12,
+  },
+  {
+    id: "P004", name: "Casual Pants", category: "Bottoms",
+    fabricId: "F002", fabricPerUnit: 2.8,
+    accessories: [
+      { accId: "A002", qtyPerUnit: 1 }, { accId: "A001", qtyPerUnit: 1 },
+      { accId: "A003", qtyPerUnit: 0.8 }, { accId: "A004", qtyPerUnit: 1 },
+      { accId: "A005", qtyPerUnit: 1 }, { accId: "A006", qtyPerUnit: 0.5 },
+      { accId: "A007", qtyPerUnit: 1 }, { accId: "A008", qtyPerUnit: 1 },
+    ],
+    laborCut: 22, laborSew: 65, laborQC: 13,
+  },
+  {
+    id: "P005", name: "Sports Tee", category: "Tops",
+    fabricId: "F003", fabricPerUnit: 1.6,
+    accessories: [
+      { accId: "A004", qtyPerUnit: 1 }, { accId: "A005", qtyPerUnit: 1 },
+      { accId: "A006", qtyPerUnit: 0.2 }, { accId: "A008", qtyPerUnit: 1 },
+    ],
+    laborCut: 10, laborSew: 22, laborQC: 8,
+  },
+];
+
+const INIT_PRINT_TYPES = [
+  { id: "PT001", name: "None", costPerUnit: 0 },
+  { id: "PT002", name: "Silk Screen (1 color)", costPerUnit: 18 },
+  { id: "PT003", name: "Silk Screen (4 color)", costPerUnit: 45 },
+  { id: "PT004", name: "Embroidery (small)", costPerUnit: 35 },
+  { id: "PT005", name: "Embroidery (large)", costPerUnit: 75 },
+  { id: "PT006", name: "Digital Print", costPerUnit: 55 },
+  { id: "PT007", name: "Heat Transfer", costPerUnit: 28 },
+];
+
+const INIT_SUPPLIERS = [
+  { id: "S001", name: "Thai Textile Co.", contact: "02-123-4567", category: "Fabric" },
+  { id: "S002", name: "Bangkok Weaving", contact: "02-234-5678", category: "Fabric" },
+  { id: "S003", name: "Trim & Findings Ltd.", contact: "02-345-6789", category: "Accessories" },
+  { id: "S004", name: "Label House", contact: "02-456-7890", category: "Packaging" },
+];
+
+const INIT_COST_RATES = {
+  overheadRate: 18,
+  laborCutRate: 1.0,
+  laborSewRate: 1.0,
+  laborQCRate: 1.0,
+  currency: "THB",
+};
+
+const INIT_STOCK = {
+  F001: 450, F002: 220, F003: 380, F004: 150,
+  A001: 2500, A002: 300, A003: 800, A004: 3000,
+  A005: 3000, A006: 120, A007: 2000, A008: 2000,
+};
+
+const INIT_ORDERS = [
+  { id: "SO-2401", customer: "Brand ABC", patternId: "P002", printTypeId: "PT004", qty: 500, targetPrice: 280, status: "confirmed", date: "2024-01-15" },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+const fmt = (n, d = 2) => (isNaN(n) ? "0.00" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: d, maximumFractionDigits: d }));
+const genId = (prefix) => `${prefix}${Date.now().toString().slice(-5)}`;
+
+function calcCost(order, patterns, fabrics, accessories, printTypes, costRates) {
+  const pat = patterns.find(p => p.id === order.patternId);
+  const fab = fabrics.find(f => f.id === pat?.fabricId);
+  const pt = printTypes.find(p => p.id === order.printTypeId);
+  if (!pat || !fab) return null;
+
+  const fabricCost = pat.fabricPerUnit * fab.costPerUnit;
+  const trimCost = pat.accessories.reduce((sum, a) => {
+    const acc = accessories.find(x => x.id === a.accId);
+    return sum + (acc ? acc.costPerUnit * a.qtyPerUnit : 0);
+  }, 0);
+  const laborCost = (pat.laborCut * costRates.laborCutRate) + (pat.laborSew * costRates.laborSewRate) + (pat.laborQC * costRates.laborQCRate);
+  const printCost = pt?.costPerUnit || 0;
+  const subtotal = fabricCost + trimCost + laborCost + printCost;
+  const overhead = subtotal * (costRates.overheadRate / 100);
+  const totalPerUnit = subtotal + overhead;
+
+  return { fabricCost, trimCost, laborCost, printCost, overhead, subtotal, totalPerUnit, totalCost: totalPerUnit * order.qty };
+}
+
+function checkStock(order, patterns, fabrics, stock) {
+  const pat = patterns.find(p => p.id === order.patternId);
+  if (!pat) return [];
+  const items = [];
+  const fabNeeded = pat.fabricPerUnit * order.qty;
+  const fabHave = stock[pat.fabricId] || 0;
+  items.push({ id: pat.fabricId, name: fabrics.find(f => f.id === pat.fabricId)?.name, needed: fabNeeded, have: fabHave, ok: fabHave >= fabNeeded, unit: "m" });
+  pat.accessories.forEach(a => {
+    const needed = a.qtyPerUnit * order.qty;
+    const have = stock[a.accId] || 0;
+    items.push({ id: a.accId, name: a.accId, needed: Math.ceil(needed), have, ok: have >= needed, unit: "" });
+  });
+  return items;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI ATOMS
+// ═══════════════════════════════════════════════════════════════
+
+const C = {
+  bg: "#080d18", card: "#0d1526", border: "#1a2540",
+  accent: "#e8a020", accent2: "#3b82f6", ok: "#10b981", err: "#ef4444",
+  text: "#dde4f0", muted: "#4a5980", sub: "#8393b0",
+};
+
+const s = {
+  input: { width: "100%", padding: "9px 12px", background: "#060b16", border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, fontFamily: "inherit", fontSize: 12, outline: "none", boxSizing: "border-box" },
+  select: { width: "100%", padding: "9px 12px", background: "#060b16", border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, fontFamily: "inherit", fontSize: 12, outline: "none" },
+  btn: (col = C.accent, light = false) => ({
+    padding: "8px 18px", background: col, color: light ? "#fff" : "#000", border: "none",
+    borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700,
+  }),
+  btnGhost: { padding: "7px 16px", background: "transparent", color: C.sub, border: `1px solid ${C.border}`, borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontSize: 12 },
+  th: { padding: "8px 10px", textAlign: "left", color: C.muted, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, borderBottom: `1px solid ${C.border}`, background: "#060b16" },
+  td: { padding: "8px 10px", fontSize: 12, color: C.text, borderBottom: `1px solid #0a1020` },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// BILINGUAL TRANSLATION SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+const LANG = {
+  EN: {
+    // App shell
+    appName: "PRIMER Group NXT", appSub: "Production Management System",
+    // Nav modules
+    navItems: "📁 Item Master", navMaster: "⚙️ Master Data", navOrder: "📋 Orders",
+    navBom: "📦 BOM", navInventory: "🏬 Inventory", navCosting: "💹 Costing", navReports: "📄 Reports",
+    // Top bar stats
+    statSku: "SKU", statOrders: "Orders", statStock: "Stock", statStockVal: "Stock Value",
+    // Common actions
+    add: "+ Add", edit: "Edit", delete: "Delete", save: "💾 Save", cancel: "Cancel",
+    close: "Close", search: "Search...", selectOrder: "Select Order",
+    // Status labels
+    draft: "Draft", confirmed: "Confirmed", production: "Production",
+    done: "Done", cancelled: "Cancelled",
+    paid: "✅ Paid", pending: "⏳ Pending", partial: "💛 Partial",
+    // Master Data
+    masterTitle: "⚙️ MASTER DATA", masterSub: "Fabrics · Accessories · Suppliers · Patterns · Print Types",
+    tabFabric: "Fabric", tabAccessories: "Accessories", tabPattern: "Pattern",
+    tabPrint: "Print/EMB", tabSupplier: "Supplier", tabRates: "Cost Rates",
+    fabricMaster: "Fabric Master", addFabric: "+ Add",
+    colImage: "Image", colId: "ID", colName: "Name", colType: "Type",
+    colWidth: "Width", colUnit: "Unit", colPrice: "Price/Unit", colSupplier: "Supplier",
+    fabricWidth: "Fabric Width (cm)", fabricName: "Fabric Name", fabricType: "Type",
+    fabricUnit: "Unit", fabricCost: "Cost/Unit (฿)", fabricNote: "Fabric Note",
+    fabricImg: "Fabric Image", fabricImgHint: "Upload a fabric sample image for the production team",
+    fabricImgDel: "× Remove Image", fabricImgClick: "Click to upload",
+    unitM: "Meters (m)", unitYard: "Yards", unitKg: "Kilograms (kg)",
+    typeKnit: "Knit", typeWoven: "Woven", typeCotton: "Cotton",
+    // Order Module
+    orderTitle: "📋 ORDER MODULE", orderSub: "Manage Production Orders",
+    createOrder: "+ Create Order", editOrder: "Edit Order", newOrder: "New Order",
+    colCustomer: "Customer", colSlots: "Items", colQty: "Total Qty", colTarget: "Target Price",
+    colDate: "Date", colStatus: "Status",
+    tabInfo: "📋 Order Info", tabSlots: "🧩 Products", tabNotice: "⚠️ Special Notice",
+    customerName: "Customer Name", targetPrice: "Target Price/Unit (optional)",
+    orderDate: "Order Date", dueDate: "Due Date (Delivery)",
+    orderStatus: "Status", orderChannel: "Order Channel", contactInfo: "Contact / Line ID",
+    channelDirect: "Direct", channelLine: "LINE", channelEmail: "Email",
+    channelPhone: "Phone", channelWeb: "Website", channelAgent: "Agent",
+    totalQtyLabel: "Total qty all items:", slotAddBtn: "+ Add Item",
+    slotPattern: "Pattern / SKU", slotQty: "Qty (pcs)", slotPrint: "Print / EMB",
+    slotColor: "Color", slotSize: "Size Breakdown (e.g. S×10, M×20)",
+    slotNote: "📝 Item Note", slotImg: "Product Image",
+    slotImgDel: "Remove", lowStockWarn: "⚠️ Low stock — reorder needed",
+    noticeHint: "⚠️ Use this for special production requirements, packing instructions, urgent deadlines, etc.",
+    noticeLabel: "Special Notice for this Order",
+    noticePlaceholder: "e.g.:\n- Must ship before April 30\n- Pack by size in separate bags\n- No black thread\n- Customer requires 100% QC before shipping",
+    priorityLabel: "Priority", priorityLow: "🟢 Normal (Low)", priorityNormal: "🟡 Medium (Normal)",
+    priorityHigh: "🔴 Urgent (High)", priorityUrgent: "🚨 Very Urgent",
+    refLink: "Reference File / Link",
+    viewBtn: "👁 View", bomBtn: "BOM", editBtn: "Edit", delBtn: "Delete",
+    nextBtn: "Next: Products →", saveOrder: "💾 Save Order",
+    specialNoticeTitle: "⚠️ SPECIAL NOTICE", totalQtyInfo: "Total Qty",
+    productList: "Product Items", noOrders: "No orders yet — click Create Order above",
+    // BOM
+    bomTitle: "📦 BOM & Materials Purchasing", bomSub: "Bill of Materials · Purchase Bills · Price Comparison",
+    tabBom: "📋 BOM", tabBills: "🧾 Purchase Bills", tabCompare: "⚖️ Price Compare",
+    bomMaterials: "Materials List", bomCostTotal: "Total Material Cost (excl. labor/overhead)",
+    colNeeded: "Required", colHave: "In Stock", colMasterPrice: "Master Price",
+    colCostTotal: "Total Cost", colStockStatus: "Status",
+    inStock: "✓ Reserved", outStock: "✗ Short", poNeeded: "⚠️ Purchase Order required for:",
+    addBillBtn: "+ Record New Bill", billsAll: "🧾 Total Bills", billsPaid: "✅ Paid",
+    billsPending: "⏳ Outstanding", noBills: "No bills yet — click 'Record New Bill' to start",
+    billInvoiceNo: "Invoice No.", billDate: "Purchase Date", billSupplier: "Supplier Name",
+    billStatus: "Payment Status", billReceiptImg: "📷 Receipt / Bill Photo",
+    billReceiptHint: "Upload a photo or scan of the receipt to verify against the items below",
+    billReceiptDel: "× Remove Image", billItems: "Materials in this Bill",
+    billAddItem: "+ Add Item", billColItem: "Item", billColQty: "Qty",
+    billColUnit: "Unit", billColPrice: "Price/Unit", billColTotal: "Total",
+    billGrandTotal: "Bill Total", saveBill: "💾 Save Bill",
+    compareSearch: "Search material name to compare prices",
+    compareSearchPlaceholder: "e.g. Cotton, Zipper, Button...",
+    compareCheapest: "💚 Cheapest", compareMostExp: "🔴 Most Expensive",
+    compareDiff: "📊 Price Difference", compareFound: "bills found",
+    compareTitle: "Price Comparison", compareRanked: "— ranked cheapest first",
+    compareChart: "Price Chart", compareEmpty: "Type a material name above",
+    compareEmptySub: "to compare prices across all your suppliers",
+    compareTagCheap: "Cheapest", compareTagExp: "Most Expensive",
+    colRank: "Rank", colInvoice: "Invoice No.", colBillDate: "Date",
+    compareNoResult: "No results found for",
+    // Inventory
+    invTitle: "🏬 INVENTORY", invSub: "Manage Material Stock",
+    invLowAlert: "⚠️ Low Stock:", invAdjust: "Adjust",
+    invColStock: "Stock Qty", invColValue: "Value", invColStockStatus: "Status",
+    invStatusEmpty: "Empty", invStatusCrit: "Critical", invStatusLow: "Low", invStatusOk: "Normal",
+    invTotalVal: "Total Stock Value", invAdjTitle: "Adjust Stock",
+    invAdjCurrent: "Current:", invAdjQty: "Add / Deduct (use - to deduct)",
+    invAdjReason: "Reason", invAdjPlaceholder: "Received / Used / Damaged",
+    // Costing
+    costTitle: "💹 COSTING & PRICING", costSub: "Calculate Cost and Set Selling Price",
+    costBreakdown: "Cost / Unit", costLabor: "Labor (Cut+Sew+QC)",
+    costOverhead: "Overhead", costTotalUnit: "Total Cost / Unit",
+    costTotalAll: "Total for all units", costTargetVsCost: "Target Price vs Cost",
+    costProfit: "✓ Profitable", costLoss: "✗ Loss",
+    pricingTitle: "Pricing", modeMargin: "Margin %", modeSell: "Set Sell Price",
+    marginLabel: "Target Margin (%)", sellPriceLabel: "Sell Price / Unit (฿)",
+    profitUnit: "Profit / Unit", profitTotal: "Total Profit", marginActual: "Actual Margin",
+    // Reports
+    reportTitle: "📄 REPORTS", reportSub: "Business Overview",
+    // Item Master
+    itemTitle: "📁 ITEM MASTER", itemSub: "SKU Management",
+    itemUpload: "📤 Import from Excel",
+  },
+  TH: {
+    // App shell
+    appName: "PRIMER Group NXT", appSub: "ระบบบริหารการผลิต",
+    // Nav modules
+    navItems: "📁 รายการสินค้า", navMaster: "⚙️ ข้อมูลหลัก", navOrder: "📋 ออเดอร์",
+    navBom: "📦 BOM", navInventory: "🏬 คลังสินค้า", navCosting: "💹 ต้นทุน", navReports: "📄 รายงาน",
+    // Top bar stats
+    statSku: "SKU", statOrders: "ออเดอร์", statStock: "สต๊อกต่ำ", statStockVal: "มูลค่าสต๊อก",
+    // Common actions
+    add: "+ เพิ่ม", edit: "แก้ไข", delete: "ลบ", save: "💾 บันทึก", cancel: "ยกเลิก",
+    close: "ปิด", search: "ค้นหา...", selectOrder: "เลือก Order",
+    // Status labels
+    draft: "ร่าง", confirmed: "ยืนยันแล้ว", production: "กำลังผลิต",
+    done: "เสร็จสิ้น", cancelled: "ยกเลิก",
+    paid: "✅ จ่ายแล้ว", pending: "⏳ รอชำระ", partial: "💛 จ่ายบางส่วน",
+    // Master Data
+    masterTitle: "⚙️ ข้อมูลหลัก", masterSub: "ผ้า · อุปกรณ์เสริม · Supplier · Pattern · การพิมพ์",
+    tabFabric: "ผ้า", tabAccessories: "อุปกรณ์เสริม", tabPattern: "Pattern",
+    tabPrint: "Print/EMB", tabSupplier: "Supplier", tabRates: "อัตราต้นทุน",
+    fabricMaster: "รายการผ้า", addFabric: "+ เพิ่ม",
+    colImage: "รูป", colId: "รหัส", colName: "ชื่อ", colType: "ประเภท",
+    colWidth: "ความกว้าง", colUnit: "หน่วย", colPrice: "ราคา/หน่วย", colSupplier: "Supplier",
+    fabricWidth: "ความกว้างผ้า (cm)", fabricName: "ชื่อผ้า", fabricType: "ประเภท",
+    fabricUnit: "หน่วย", fabricCost: "ราคา/หน่วย (฿)", fabricNote: "หมายเหตุผ้า",
+    fabricImg: "รูปตัวอย่างผ้า", fabricImgHint: "อัปโหลดรูปเนื้อผ้า เพื่อให้ทีมผลิตเห็นลักษณะผ้าได้ง่ายขึ้น",
+    fabricImgDel: "× ลบรูป", fabricImgClick: "คลิกอัปโหลด",
+    unitM: "เมตร (m)", unitYard: "หลา (Yard)", unitKg: "กิโลกรัม (kg)",
+    typeKnit: "Knit", typeWoven: "Woven", typeCotton: "Cotton",
+    // Order Module
+    orderTitle: "📋 ORDER MODULE", orderSub: "จัดการคำสั่งผลิต",
+    createOrder: "+ สร้าง Order", editOrder: "แก้ไข Order", newOrder: "สร้าง Order ใหม่",
+    colCustomer: "ลูกค้า", colSlots: "รายการ", colQty: "Qty รวม", colTarget: "ราคาเป้า",
+    colDate: "วันที่", colStatus: "Status",
+    tabInfo: "📋 ข้อมูล Order", tabSlots: "🧩 รายการสินค้า", tabNotice: "⚠️ หมายเหตุพิเศษ",
+    customerName: "ชื่อลูกค้า", targetPrice: "ราคาเป้าหมาย/ตัว (optional)",
+    orderDate: "วันที่สั่ง", dueDate: "กำหนดส่ง (Due Date)",
+    orderStatus: "Status", orderChannel: "ช่องทางการรับออเดอร์", contactInfo: "เบอร์ติดต่อ / Line ID",
+    channelDirect: "Direct", channelLine: "LINE", channelEmail: "Email",
+    channelPhone: "โทรศัพท์", channelWeb: "Website", channelAgent: "Agent",
+    totalQtyLabel: "Qty รวมทุกรายการ:", slotAddBtn: "+ เพิ่มรายการ",
+    slotPattern: "Pattern / SKU", slotQty: "จำนวน (ตัว)", slotPrint: "Print / EMB",
+    slotColor: "สี", slotSize: "ไซส์ breakdown (เช่น S×10, M×20)",
+    slotNote: "📝 หมายเหตุรายการนี้", slotImg: "รูปสินค้า",
+    slotImgDel: "ลบรูป", lowStockWarn: "⚠️ สต๊อกต่ำ — ต้องสั่งซื้อเพิ่ม",
+    noticeHint: "⚠️ ใช้สำหรับบันทึกคำแนะนำพิเศษ เช่น ข้อกำหนดการผลิต, การแพ็คพิเศษ, วันที่ต้องส่งด่วน ฯลฯ",
+    noticeLabel: "หมายเหตุพิเศษของ Order นี้",
+    noticePlaceholder: "เช่น:\n- ต้องส่งก่อนวันที่ 30 เม.ย.\n- แพ็คใส่ถุงแยกไซส์\n- ห้ามใช้ด้ายสีดำ\n- ลูกค้าต้องการ QC ก่อนส่ง 100%",
+    priorityLabel: "ลำดับความสำคัญ", priorityLow: "🟢 ปกติ (Low)", priorityNormal: "🟡 กลาง (Normal)",
+    priorityHigh: "🔴 ด่วน (High)", priorityUrgent: "🚨 ด่วนมาก (Urgent)",
+    refLink: "ไฟล์แนบ / Link อ้างอิง",
+    viewBtn: "👁 ดู", bomBtn: "BOM", editBtn: "แก้", delBtn: "ลบ",
+    nextBtn: "ถัดไป: รายการสินค้า →", saveOrder: "💾 บันทึก Order",
+    specialNoticeTitle: "⚠️ หมายเหตุพิเศษ", totalQtyInfo: "Qty รวม",
+    productList: "รายการสินค้า", noOrders: "ยังไม่มี Order — กดสร้าง Order ด้านบน",
+    // BOM
+    bomTitle: "📦 BOM & ซื้อวัตถุดิบ", bomSub: "Bill of Materials · บิลซื้อ · เปรียบราคา Supplier",
+    tabBom: "📋 BOM", tabBills: "🧾 บิลซื้อ", tabCompare: "⚖️ เปรียบราคา",
+    bomMaterials: "รายการวัตถุดิบ", bomCostTotal: "ต้นทุนวัตถุดิบรวม (excl. labor/overhead)",
+    colNeeded: "รวมต้องการ", colHave: "มีในสต๊อก", colMasterPrice: "ราคา Master",
+    colCostTotal: "ต้นทุนรวม", colStockStatus: "สถานะ",
+    inStock: "✓ จองสต๊อก", outStock: "✗ ขาด", poNeeded: "⚠️ ต้องออกใบสั่งซื้อ (PO) สำหรับ:",
+    addBillBtn: "+ บันทึกบิลใหม่", billsAll: "🧾 บิลทั้งหมด", billsPaid: "✅ จ่ายแล้ว",
+    billsPending: "⏳ ค้างชำระ", noBills: "ยังไม่มีบิล — กด 'บันทึกบิลใหม่' เพื่อเริ่ม",
+    billInvoiceNo: "เลขที่ใบเสร็จ / Invoice No.", billDate: "วันที่ซื้อ", billSupplier: "ชื่อ Supplier",
+    billStatus: "สถานะการชำระ", billReceiptImg: "📷 ถ่ายรูปใบเสร็จ / สแกนบิล",
+    billReceiptHint: "อัปโหลดภาพใบเสร็จ หรือรูปถ่ายบิลจากร้านค้า เพื่อใช้ตรวจสอบกับรายการที่กรอกด้านล่าง",
+    billReceiptDel: "× ลบรูป", billItems: "รายการวัตถุดิบในบิลนี้",
+    billAddItem: "+ เพิ่มรายการ", billColItem: "รายการ", billColQty: "จำนวน",
+    billColUnit: "หน่วย", billColPrice: "ราคา/หน่วย", billColTotal: "รวม",
+    billGrandTotal: "ยอดรวมบิลนี้", saveBill: "💾 บันทึกบิล",
+    compareSearch: "ค้นหาวัตถุดิบเพื่อเปรียบราคา",
+    compareSearchPlaceholder: "พิมพ์ชื่อผ้า หรือวัตถุดิบ เช่น Cotton, Zipper...",
+    compareCheapest: "💚 ราคาถูกสุด", compareMostExp: "🔴 ราคาแพงสุด",
+    compareDiff: "📊 ส่วนต่าง", compareFound: "บิลที่พบ",
+    compareTitle: "ผลเปรียบราคา", compareRanked: "— เรียงจากถูกที่สุด",
+    compareChart: "กราฟเปรียบราคา", compareEmpty: "พิมพ์ชื่อวัตถุดิบด้านบน",
+    compareEmptySub: "เพื่อดูราคาเปรียบเทียบจากทุก Supplier ที่เคยซื้อ",
+    compareTagCheap: "ถูกสุด", compareTagExp: "แพงสุด",
+    colRank: "อันดับ", colInvoice: "Invoice No.", colBillDate: "วันที่",
+    compareNoResult: "ไม่พบรายการ",
+    // Inventory
+    invTitle: "🏬 INVENTORY", invSub: "จัดการสต๊อกวัตถุดิบ",
+    invLowAlert: "⚠️ สต๊อกต่ำ:", invAdjust: "ปรับ",
+    invColStock: "Qty ในสต๊อก", invColValue: "มูลค่า", invColStockStatus: "Status",
+    invStatusEmpty: "หมด", invStatusCrit: "วิกฤต", invStatusLow: "ต่ำ", invStatusOk: "ปกติ",
+    invTotalVal: "มูลค่าสต๊อกรวม", invAdjTitle: "ปรับ Stock",
+    invAdjCurrent: "ปัจจุบัน:", invAdjQty: "เพิ่ม/ลด จำนวน (ใส่ - เพื่อตัดสต๊อก)",
+    invAdjReason: "เหตุผล", invAdjPlaceholder: "รับของ / ตัดสต๊อก / สต๊อกเสีย",
+    // Costing
+    costTitle: "💹 COSTING & PRICING", costSub: "คำนวณต้นทุนและตั้งราคาขาย",
+    costBreakdown: "ต้นทุน / ตัว", costLabor: "Labor (ตัด+เย็บ+QC)",
+    costOverhead: "Overhead", costTotalUnit: "รวมต้นทุน / ตัว",
+    costTotalAll: "รวมทั้งหมด", costTargetVsCost: "ราคาเป้าหมายลูกค้า vs ต้นทุน",
+    costProfit: "✓ กำไร", costLoss: "✗ ขาดทุน",
+    pricingTitle: "ตั้งราคาขาย", modeMargin: "Margin %", modeSell: "กำหนดราคาขาย",
+    marginLabel: "Margin เป้าหมาย (%)", sellPriceLabel: "ราคาขาย / ตัว (฿)",
+    profitUnit: "กำไร / ตัว", profitTotal: "กำไรรวม", marginActual: "Margin จริง",
+    // Reports
+    reportTitle: "📄 REPORTS", reportSub: "ภาพรวมธุรกิจ",
+    // Item Master
+    itemTitle: "📁 ITEM MASTER", itemSub: "จัดการ SKU",
+    itemUpload: "📤 นำเข้าจาก Excel",
+  }
+};
+
+// Language context — read by all modules
+let _lang = "EN";
+const t = (key) => LANG[_lang][key] || LANG["EN"][key] || key;
+
+function LangToggle({ lang, setLang }) {
+  return (
+    <div style={{ display: "flex", background: "#060b16", border: `1px solid ${C.border}`, borderRadius: 8, padding: 3, gap: 2, flexShrink: 0 }}>
+      {["EN", "TH"].map(l => (
+        <button key={l} onClick={() => { setLang(l); _lang = l; }} style={{
+          padding: "4px 12px", borderRadius: 6, border: "none", cursor: "pointer",
+          fontFamily: "inherit", fontSize: 11, fontWeight: 700,
+          background: lang === l ? C.accent : "transparent",
+          color: lang === l ? "#000" : C.muted,
+          transition: "all 0.2s",
+        }}>{l === "EN" ? "🇬🇧 EN" : "🇹🇭 TH"}</button>
+      ))}
+    </div>
+  );
+}
+
+function Card({ children, style = {} }) {
+  return <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18, ...style }}>{children}</div>;
+}
+
+function SectionHead({ title, sub, action }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
+      <div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: C.accent, letterSpacing: 1 }}>{title}</div>
+        {sub && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{sub}</div>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function Tag({ text, color = C.ok }) {
+  return <span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: color + "25", color }}>{text}</span>;
+}
+
+function Modal({ title, onClose, children }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000b", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, width: "100%", maxWidth: 540, maxHeight: "80vh", overflow: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${C.border}` }}>
+          <span style={{ fontWeight: 700, color: C.accent, fontSize: 14 }}>{title}</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 20, lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: 20 }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children, half }) {
+  return (
+    <div style={{ marginBottom: 12, flex: half ? "0 0 calc(50% - 6px)" : "1 1 100%" }}>
+      <label style={{ display: "block", fontSize: 10, color: C.muted, marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function Row2({ children }) {
+  return <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>{children}</div>;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: MASTER DATA
+// ═══════════════════════════════════════════════════════════════
+
+function MasterModule({ data, setData }) {
+  const [tab, setTab] = useState("fabric");
+  const [modal, setModal] = useState(null);
+  const [form, setForm] = useState({});
+
+  const tabs = [
+    { id: "fabric", label: t("tabFabric") },
+    { id: "accessories", label: t("tabAccessories") },
+    { id: "pattern", label: t("tabPattern") },
+    { id: "print", label: t("tabPrint") },
+    { id: "supplier", label: t("tabSupplier") },
+    { id: "rates", label: t("tabRates") },
+  ];
+
+  const openAdd = (type) => {
+    setModal(type);
+    setForm(type === "rates" ? { ...data.costRates } : {});
+  };
+
+  const save = () => {
+    if (modal === "fabric") {
+      const id = form.id || genId("F");
+      setData(d => ({ ...d, fabrics: [...d.fabrics.filter(x => x.id !== id), { ...form, id, costPerUnit: parseFloat(form.costPerUnit) || 0, width: form.width ? parseFloat(form.width) : null, imagePreview: form.imagePreview || null, note: form.note || "" }] }));
+    } else if (modal === "accessories") {
+      const id = form.id || genId("A");
+      setData(d => ({ ...d, accessories: [...d.accessories.filter(x => x.id !== id), { ...form, id, costPerUnit: parseFloat(form.costPerUnit) || 0 }] }));
+    } else if (modal === "print") {
+      const id = form.id || genId("PT");
+      setData(d => ({ ...d, printTypes: [...d.printTypes.filter(x => x.id !== id), { ...form, id, costPerUnit: parseFloat(form.costPerUnit) || 0 }] }));
+    } else if (modal === "supplier") {
+      const id = form.id || genId("S");
+      setData(d => ({ ...d, suppliers: [...d.suppliers.filter(x => x.id !== id), { ...form, id }] }));
+    } else if (modal === "rates") {
+      setData(d => ({ ...d, costRates: { ...d.costRates, overheadRate: parseFloat(form.overheadRate), laborCutRate: parseFloat(form.laborCutRate), laborSewRate: parseFloat(form.laborSewRate), laborQCRate: parseFloat(form.laborQCRate) } }));
+    }
+    setModal(null);
+  };
+
+  const del = (type, id) => {
+    if (type === "fabric") setData(d => ({ ...d, fabrics: d.fabrics.filter(x => x.id !== id) }));
+    else if (type === "accessories") setData(d => ({ ...d, accessories: d.accessories.filter(x => x.id !== id) }));
+    else if (type === "print") setData(d => ({ ...d, printTypes: d.printTypes.filter(x => x.id !== id) }));
+    else if (type === "supplier") setData(d => ({ ...d, suppliers: d.suppliers.filter(x => x.id !== id) }));
+  };
+
+  return (
+    <div>
+      <SectionHead title={t("masterTitle")} sub={t("masterSub")} />
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{ ...s.btnGhost, ...(tab === t.id ? { background: C.accent + "20", color: C.accent, borderColor: C.accent + "60" } : {}) }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "fabric" && (
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Fabric Master</span>
+            <button style={s.btn()} onClick={() => openAdd("fabric")}>+ เพิ่ม</button>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>{[t("colImage"), t("colId"), t("colName"), t("colType"), t("colWidth"), t("colUnit"), t("colPrice"), t("colSupplier"), ""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+            <tbody>
+              {data.fabrics.map(f => (
+                <tr key={f.id}>
+                  <td style={{ ...s.td, padding: "6px 10px" }}>
+                    {f.imagePreview
+                      ? <img src={f.imagePreview} alt={f.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: `1px solid ${C.border}`, display: "block" }} />
+                      : <div style={{ width: 40, height: 40, background: "#060b16", border: `1px dashed ${C.border}`, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🧵</div>
+                    }
+                  </td>
+                  <td style={{ ...s.td, color: C.muted }}>{f.id}</td>
+                  <td style={s.td}>{f.name}</td>
+                  <td style={s.td}><Tag text={f.type} color={C.accent2} /></td>
+                  <td style={{ ...s.td, color: C.accent2 }}>{f.width ? `${f.width} cm` : <span style={{ color: C.muted }}>—</span>}</td>
+                  <td style={s.td}>{f.unit}</td>
+                  <td style={{ ...s.td, color: C.accent }}>฿{fmt(f.costPerUnit)}</td>
+                  <td style={{ ...s.td, color: C.muted }}>{f.supplier}</td>
+                  <td style={s.td}>
+                    <button onClick={() => { setModal("fabric"); setForm(f); }} style={{ ...s.btnGhost, padding: "3px 10px", marginRight: 4 }}>แก้ไข</button>
+                    <button onClick={() => del("fabric", f.id)} style={{ ...s.btnGhost, padding: "3px 10px", color: C.err, borderColor: C.err + "50" }}>ลบ</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {tab === "accessories" && (
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Accessories Master</span>
+            <button style={s.btn()} onClick={() => openAdd("accessories")}>+ เพิ่ม</button>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>{["ID", "ชื่อ", "หน่วย", "ราคา/หน่วย", "Supplier", ""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+            <tbody>
+              {data.accessories.map(a => (
+                <tr key={a.id}>
+                  <td style={{ ...s.td, color: C.muted }}>{a.id}</td>
+                  <td style={s.td}>{a.name}</td>
+                  <td style={s.td}>{a.unit}</td>
+                  <td style={{ ...s.td, color: C.accent }}>฿{fmt(a.costPerUnit)}</td>
+                  <td style={{ ...s.td, color: C.muted }}>{a.supplier}</td>
+                  <td style={s.td}>
+                    <button onClick={() => { setModal("accessories"); setForm(a); }} style={{ ...s.btnGhost, padding: "3px 10px", marginRight: 4 }}>แก้ไข</button>
+                    <button onClick={() => del("accessories", a.id)} style={{ ...s.btnGhost, padding: "3px 10px", color: C.err, borderColor: C.err + "50" }}>ลบ</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {tab === "pattern" && <PatternMaster data={data} setData={setData} />}
+
+      {tab === "print" && (
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Printing / EMB Type</span>
+            <button style={s.btn()} onClick={() => openAdd("print")}>+ เพิ่ม</button>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>{["ID", "ประเภท", "ราคา/ตัว", ""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+            <tbody>
+              {data.printTypes.map(pt => (
+                <tr key={pt.id}>
+                  <td style={{ ...s.td, color: C.muted }}>{pt.id}</td>
+                  <td style={s.td}>{pt.name}</td>
+                  <td style={{ ...s.td, color: C.accent }}>฿{fmt(pt.costPerUnit)}</td>
+                  <td style={s.td}>
+                    <button onClick={() => { setModal("print"); setForm(pt); }} style={{ ...s.btnGhost, padding: "3px 10px", marginRight: 4 }}>แก้ไข</button>
+                    <button onClick={() => del("print", pt.id)} style={{ ...s.btnGhost, padding: "3px 10px", color: C.err, borderColor: C.err + "50" }}>ลบ</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {tab === "supplier" && (
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Supplier</span>
+            <button style={s.btn()} onClick={() => openAdd("supplier")}>+ เพิ่ม</button>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>{["ID", "ชื่อ", "ติดต่อ", "หมวด", ""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+            <tbody>
+              {data.suppliers.map(sup => (
+                <tr key={sup.id}>
+                  <td style={{ ...s.td, color: C.muted }}>{sup.id}</td>
+                  <td style={s.td}>{sup.name}</td>
+                  <td style={{ ...s.td, color: C.sub }}>{sup.contact}</td>
+                  <td style={s.td}><Tag text={sup.category} color={C.accent2} /></td>
+                  <td style={s.td}>
+                    <button onClick={() => { setModal("supplier"); setForm(sup); }} style={{ ...s.btnGhost, padding: "3px 10px", marginRight: 4 }}>แก้ไข</button>
+                    <button onClick={() => del("supplier", sup.id)} style={{ ...s.btnGhost, padding: "3px 10px", color: C.err, borderColor: C.err + "50" }}>ลบ</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {tab === "rates" && (
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Cost Rate Settings</span>
+            <button style={s.btn()} onClick={() => openAdd("rates")}>แก้ไข</button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {[
+              ["Overhead Rate", data.costRates.overheadRate + "%"],
+              ["Labor Cut Rate", "×" + data.costRates.laborCutRate],
+              ["Labor Sew Rate", "×" + data.costRates.laborSewRate],
+              ["Labor QC Rate", "×" + data.costRates.laborQCRate],
+            ].map(([k, v]) => (
+              <div key={k} style={{ background: "#060b16", border: `1px solid ${C.border}`, borderRadius: 8, padding: "14px 16px" }}>
+                <div style={{ fontSize: 11, color: C.muted }}>{k}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: C.accent, marginTop: 4 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Modals */}
+      {modal === "fabric" && (
+        <Modal title={form.id ? "แก้ไข Fabric" : "เพิ่ม Fabric"} onClose={() => setModal(null)}>
+          {/* Image Upload */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontSize: 10, color: C.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>รูปตัวอย่างผ้า</label>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+              <label style={{ cursor: "pointer", flexShrink: 0 }}>
+                <div style={{
+                  width: 100, height: 100, borderRadius: 10,
+                  border: `2px dashed ${form.imagePreview ? C.accent : C.border}`,
+                  background: form.imagePreview ? "transparent" : "#060b16",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  overflow: "hidden", position: "relative"
+                }}>
+                  {form.imagePreview
+                    ? <img src={form.imagePreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 28, opacity: 0.3 }}>🧵</div>
+                        <div style={{ fontSize: 9, color: C.muted, marginTop: 4 }}>คลิกอัปโหลด</div>
+                      </div>
+                  }
+                </div>
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = ev => setForm(f => ({ ...f, imagePreview: ev.target.result }));
+                  reader.readAsDataURL(file);
+                }} />
+              </label>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: C.sub, lineHeight: 1.6, marginBottom: 8 }}>
+                  อัปโหลดรูปเนื้อผ้า เพื่อให้ทีมผลิตเห็นลักษณะผ้าได้ง่ายขึ้น
+                </div>
+                {form.imagePreview && (
+                  <button onClick={() => setForm(f => ({ ...f, imagePreview: null }))}
+                    style={{ ...s.btnGhost, padding: "4px 12px", fontSize: 11, color: C.err, borderColor: C.err + "50" }}>
+                    × ลบรูป
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <Row2>
+            <Field label="ชื่อผ้า"><input style={s.input} value={form.name || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Field>
+            <Field label="ประเภท" half>
+              <select style={s.select} value={form.type || "Knit"} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                <option>Knit</option><option>Woven</option><option>Cotton</option>
+              </select>
+            </Field>
+            <Field label="ความกว้างผ้า (cm)" half>
+              <input style={s.input} type="number" placeholder="เช่น 150, 60" value={form.width || ""} onChange={e => setForm(f => ({ ...f, width: e.target.value }))} />
+            </Field>
+            <Field label="หน่วย" half>
+              <select style={s.select} value={form.unit || "m"} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}>
+                <option value="m">เมตร (m)</option>
+                <option value="yard">หลา (Yard)</option>
+                <option value="kg">กิโลกรัม (kg)</option>
+              </select>
+            </Field>
+            <Field label="ราคา/หน่วย (฿)" half><input style={s.input} type="number" value={form.costPerUnit || ""} onChange={e => setForm(f => ({ ...f, costPerUnit: e.target.value }))} /></Field>
+            <Field label="Supplier" half>
+              <select style={s.select} value={form.supplier || ""} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))}>
+                {data.suppliers.map(s => <option key={s.id} value={s.id}>{s.id} – {s.name}</option>)}
+              </select>
+            </Field>
+            <Field label="หมายเหตุผ้า">
+              <input style={s.input} placeholder="เช่น ห้ามซักร้อน, ยืด 4 ทาง..." value={form.note || ""} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+            </Field>
+          </Row2>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button style={s.btn()} onClick={save}>บันทึก</button>
+            <button style={s.btnGhost} onClick={() => setModal(null)}>ยกเลิก</button>
+          </div>
+        </Modal>
+      )}
+      {modal === "accessories" && (
+        <Modal title={form.id ? "แก้ไข Accessories" : "เพิ่ม Accessories"} onClose={() => setModal(null)}>
+          <Row2>
+            <Field label="ชื่อ"><input style={s.input} value={form.name || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Field>
+            <Field label="หน่วย" half><input style={s.input} value={form.unit || ""} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} /></Field>
+            <Field label="ราคา/หน่วย (฿)" half><input style={s.input} type="number" value={form.costPerUnit || ""} onChange={e => setForm(f => ({ ...f, costPerUnit: e.target.value }))} /></Field>
+            <Field label="Supplier"><select style={s.select} value={form.supplier || ""} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))}>{data.suppliers.map(s => <option key={s.id} value={s.id}>{s.id} – {s.name}</option>)}</select></Field>
+          </Row2>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button style={s.btn()} onClick={save}>บันทึก</button>
+            <button style={s.btnGhost} onClick={() => setModal(null)}>ยกเลิก</button>
+          </div>
+        </Modal>
+      )}
+      {modal === "print" && (
+        <Modal title={form.id ? "แก้ไข Print/EMB" : "เพิ่ม Print/EMB"} onClose={() => setModal(null)}>
+          <Field label="ชื่อ"><input style={s.input} value={form.name || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Field>
+          <Field label="ราคา/ตัว (฿)"><input style={s.input} type="number" value={form.costPerUnit || ""} onChange={e => setForm(f => ({ ...f, costPerUnit: e.target.value }))} /></Field>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button style={s.btn()} onClick={save}>บันทึก</button>
+            <button style={s.btnGhost} onClick={() => setModal(null)}>ยกเลิก</button>
+          </div>
+        </Modal>
+      )}
+      {modal === "supplier" && (
+        <Modal title={form.id ? "แก้ไข Supplier" : "เพิ่ม Supplier"} onClose={() => setModal(null)}>
+          <Row2>
+            <Field label="ชื่อบริษัท"><input style={s.input} value={form.name || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Field>
+            <Field label="เบอร์โทร" half><input style={s.input} value={form.contact || ""} onChange={e => setForm(f => ({ ...f, contact: e.target.value }))} /></Field>
+            <Field label="หมวด" half><select style={s.select} value={form.category || "Fabric"} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}><option>Fabric</option><option>Accessories</option><option>Packaging</option><option>Other</option></select></Field>
+          </Row2>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button style={s.btn()} onClick={save}>บันทึก</button>
+            <button style={s.btnGhost} onClick={() => setModal(null)}>ยกเลิก</button>
+          </div>
+        </Modal>
+      )}
+      {modal === "rates" && (
+        <Modal title="แก้ไข Cost Rates" onClose={() => setModal(null)}>
+          <Row2>
+            <Field label="Overhead Rate (%)" half><input style={s.input} type="number" value={form.overheadRate} onChange={e => setForm(f => ({ ...f, overheadRate: e.target.value }))} /></Field>
+            <Field label="Labor Cut Rate (×)" half><input style={s.input} type="number" step="0.1" value={form.laborCutRate} onChange={e => setForm(f => ({ ...f, laborCutRate: e.target.value }))} /></Field>
+            <Field label="Labor Sew Rate (×)" half><input style={s.input} type="number" step="0.1" value={form.laborSewRate} onChange={e => setForm(f => ({ ...f, laborSewRate: e.target.value }))} /></Field>
+            <Field label="Labor QC Rate (×)" half><input style={s.input} type="number" step="0.1" value={form.laborQCRate} onChange={e => setForm(f => ({ ...f, laborQCRate: e.target.value }))} /></Field>
+          </Row2>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button style={s.btn()} onClick={save}>บันทึก</button>
+            <button style={s.btnGhost} onClick={() => setModal(null)}>ยกเลิก</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function PatternMaster({ data, setData }) {
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({ accessories: [] });
+
+  const openAdd = (p = null) => {
+    setForm(p ? { ...p, accessories: [...p.accessories] } : { accessories: [], laborCut: 12, laborSew: 30, laborQC: 8 });
+    setModal(true);
+  };
+
+  const addAcc = () => setForm(f => ({ ...f, accessories: [...f.accessories, { accId: data.accessories[0]?.id || "", qtyPerUnit: 1 }] }));
+  const removeAcc = (i) => setForm(f => ({ ...f, accessories: f.accessories.filter((_, idx) => idx !== i) }));
+  const updateAcc = (i, key, val) => setForm(f => ({ ...f, accessories: f.accessories.map((a, idx) => idx === i ? { ...a, [key]: val } : a) }));
+
+  const save = () => {
+    const id = form.id || genId("P");
+    setData(d => ({ ...d, patterns: [...d.patterns.filter(p => p.id !== id), { ...form, id, fabricPerUnit: parseFloat(form.fabricPerUnit), laborCut: parseFloat(form.laborCut), laborSew: parseFloat(form.laborSew), laborQC: parseFloat(form.laborQC) }] }));
+    setModal(false);
+  };
+
+  return (
+    <Card>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Pattern Master</span>
+        <button style={s.btn()} onClick={() => openAdd()}>+ เพิ่ม</button>
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead><tr>{["ID", "Pattern", "Category", "Fabric", "ผ้า/ตัว", "Labor", "Trim Items", ""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+        <tbody>
+          {data.patterns.map(p => {
+            const fab = data.fabrics.find(f => f.id === p.fabricId);
+            return (
+              <tr key={p.id}>
+                <td style={{ ...s.td, color: C.muted }}>{p.id}</td>
+                <td style={s.td}>{p.name}</td>
+                <td style={s.td}><Tag text={p.category} color="#8b5cf6" /></td>
+                <td style={{ ...s.td, color: C.sub }}>{fab?.name || p.fabricId}</td>
+                <td style={{ ...s.td, color: C.accent }}>{p.fabricPerUnit} {fab?.unit || "m"}</td>
+                <td style={s.td}>฿{fmt(p.laborCut + p.laborSew + p.laborQC)}</td>
+                <td style={s.td}>{p.accessories.length} รายการ</td>
+                <td style={s.td}>
+                  <button onClick={() => openAdd(p)} style={{ ...s.btnGhost, padding: "3px 10px", marginRight: 4 }}>แก้ไข</button>
+                  <button onClick={() => setData(d => ({ ...d, patterns: d.patterns.filter(x => x.id !== p.id) }))} style={{ ...s.btnGhost, padding: "3px 10px", color: C.err, borderColor: C.err + "50" }}>ลบ</button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {modal && (
+        <Modal title={form.id ? "แก้ไข Pattern" : "เพิ่ม Pattern"} onClose={() => setModal(false)}>
+          <Row2>
+            <Field label="ชื่อ Pattern"><input style={s.input} value={form.name || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Field>
+            <Field label="Category" half><select style={s.select} value={form.category || "Tops"} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}><option>Tops</option><option>Bottoms</option><option>Outerwear</option><option>Accessories</option></select></Field>
+            <Field label="Fabric" half><select style={s.select} value={form.fabricId || ""} onChange={e => setForm(f => ({ ...f, fabricId: e.target.value }))}>{data.fabrics.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select></Field>
+            <Field label={`ผ้าต่อตัว (${data.fabrics.find(f => f.id === form.fabricId)?.unit || "m"})`} half><input style={s.input} type="number" step="0.1" value={form.fabricPerUnit || ""} onChange={e => setForm(f => ({ ...f, fabricPerUnit: e.target.value }))} /></Field>
+            <Field label="Labor ตัด (฿)" half><input style={s.input} type="number" value={form.laborCut || ""} onChange={e => setForm(f => ({ ...f, laborCut: e.target.value }))} /></Field>
+            <Field label="Labor เย็บ (฿)" half><input style={s.input} type="number" value={form.laborSew || ""} onChange={e => setForm(f => ({ ...f, laborSew: e.target.value }))} /></Field>
+            <Field label="Labor QC (฿)" half><input style={s.input} type="number" value={form.laborQC || ""} onChange={e => setForm(f => ({ ...f, laborQC: e.target.value }))} /></Field>
+          </Row2>
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: C.muted, textTransform: "uppercase" }}>Accessories</span>
+              <button style={{ ...s.btnGhost, padding: "3px 10px" }} onClick={addAcc}>+ เพิ่ม</button>
+            </div>
+            {form.accessories.map((a, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                <select style={{ ...s.select, flex: 2 }} value={a.accId} onChange={e => updateAcc(i, "accId", e.target.value)}>
+                  {data.accessories.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                </select>
+                <input style={{ ...s.input, flex: 1 }} type="number" step="0.1" value={a.qtyPerUnit} onChange={e => updateAcc(i, "qtyPerUnit", parseFloat(e.target.value))} placeholder="/ตัว" />
+                <button onClick={() => removeAcc(i)} style={{ ...s.btnGhost, padding: "5px 10px", color: C.err }}>×</button>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button style={s.btn()} onClick={save}>บันทึก</button>
+            <button style={s.btnGhost} onClick={() => setModal(false)}>ยกเลิก</button>
+          </div>
+        </Modal>
+      )}
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: ORDERS (ENHANCED)
+// ═══════════════════════════════════════════════════════════════
+
+const EMPTY_SLOT = () => ({ id: Date.now() + Math.random(), patternId: "", printTypeId: "PT001", qty: "", colorNote: "", sizeBreakdown: "", image: null, imagePreview: null, slotNote: "" });
+
+function ProductSlot({ slot, idx, data, onChange, onRemove }) {
+  const handleImage = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => onChange(idx, { ...slot, image: ev.target.result, imagePreview: ev.target.result });
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div style={{ background: "#060b16", border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 10, position: "relative" }}>
+      {/* Slot header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.accent, letterSpacing: 1, textTransform: "uppercase" }}>
+          🧩 รายการที่ {idx + 1}
+        </span>
+        {idx > 0 && (
+          <button onClick={() => onRemove(idx)} style={{ background: "none", border: `1px solid ${C.err}40`, color: C.err, borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>× ลบ</button>
+        )}
+      </div>
+
+      <div style={{ display: "flex", gap: 12 }}>
+        {/* Left: Image upload */}
+        <div style={{ flexShrink: 0 }}>
+          <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>รูปสินค้า</div>
+          <label style={{ cursor: "pointer" }}>
+            <div style={{
+              width: 80, height: 80, borderRadius: 8,
+              border: `2px dashed ${slot.imagePreview ? C.accent : C.border}`,
+              background: slot.imagePreview ? "transparent" : "#0a1020",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              overflow: "hidden", position: "relative"
+            }}>
+              {slot.imagePreview
+                ? <img src={slot.imagePreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : <span style={{ fontSize: 22, opacity: 0.4 }}>📷</span>
+              }
+            </div>
+            <input type="file" accept="image/*" onChange={handleImage} style={{ display: "none" }} />
+          </label>
+          {slot.imagePreview && (
+            <button onClick={() => onChange(idx, { ...slot, image: null, imagePreview: null })}
+              style={{ marginTop: 4, fontSize: 9, color: C.err, background: "none", border: "none", cursor: "pointer", width: "100%", textAlign: "center" }}>
+              ลบรูป
+            </button>
+          )}
+        </div>
+
+        {/* Right: Fields */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 2 }}>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Pattern / SKU</div>
+              <select style={s.select} value={slot.patternId} onChange={e => onChange(idx, { ...slot, patternId: e.target.value })}>
+                <option value="">— เลือก Pattern —</option>
+                {data.patterns.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>จำนวน (ตัว)</div>
+              <input style={s.input} type="number" placeholder="0" value={slot.qty}
+                onChange={e => onChange(idx, { ...slot, qty: e.target.value })} />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Print / EMB</div>
+              <select style={s.select} value={slot.printTypeId} onChange={e => onChange(idx, { ...slot, printTypeId: e.target.value })}>
+                {data.printTypes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>สี</div>
+              <input style={s.input} placeholder="เช่น ดำ, ขาว, กรม" value={slot.colorNote}
+                onChange={e => onChange(idx, { ...slot, colorNote: e.target.value })} />
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>ไซส์ breakdown (เช่น S×10, M×20, L×15)</div>
+            <input style={s.input} placeholder="S×10, M×20, L×15, XL×5" value={slot.sizeBreakdown}
+              onChange={e => onChange(idx, { ...slot, sizeBreakdown: e.target.value })} />
+          </div>
+
+          <div>
+            <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>📝 หมายเหตุรายการนี้</div>
+            <input style={{ ...s.input, borderColor: slot.slotNote ? C.accent + "60" : C.border }}
+              placeholder="เช่น ปักโลโก้ด้านหน้า, สกรีนหลัง..."
+              value={slot.slotNote}
+              onChange={e => onChange(idx, { ...slot, slotNote: e.target.value })} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OrderDetailModal({ order, data, onClose }) {
+  const statusColor = (st) => ({ draft: C.muted, confirmed: C.accent2, production: C.ok, done: "#22c55e", cancelled: C.err }[st] || C.muted);
+  const totalQty = (order.slots || []).reduce((s, sl) => s + (parseInt(sl.qty) || 0), 0);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1100, padding: 16, overflowY: "auto" }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, width: "100%", maxWidth: 700, marginTop: 20, marginBottom: 20 }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${C.border}`, background: "#0a1020", borderRadius: "14px 14px 0 0" }}>
+          <div>
+            <span style={{ fontWeight: 800, color: C.accent, fontSize: 16 }}>{order.id}</span>
+            <Tag text={order.status} color={statusColor(order.status)} style={{ marginLeft: 10 }} />
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 22 }}>×</button>
+        </div>
+
+        <div style={{ padding: 20 }}>
+          {/* Order info */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 16 }}>
+            {[["ลูกค้า", order.customer], ["วันที่", order.date], ["Qty รวม", totalQty.toLocaleString() + " ตัว"]].map(([k, v]) => (
+              <div key={k} style={{ background: "#060b16", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>{k}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.accent, marginTop: 3 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Special Notice */}
+          {order.specialNotice && (
+            <div style={{ background: "#7f1d1d20", border: `1px solid ${C.err}40`, borderRadius: 8, padding: "12px 14px", marginBottom: 16 }}>
+              <div style={{ fontSize: 10, color: C.err, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>⚠️ หมายเหตุพิเศษ</div>
+              <div style={{ fontSize: 13, color: C.text }}>{order.specialNotice}</div>
+            </div>
+          )}
+
+          {/* Product Slots */}
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 10 }}>รายการสินค้า ({(order.slots || []).length} รายการ)</div>
+          {(order.slots || []).map((slot, i) => {
+            const pat = data.patterns.find(p => p.id === slot.patternId);
+            const pt = data.printTypes.find(p => p.id === slot.printTypeId);
+            return (
+              <div key={i} style={{ display: "flex", gap: 12, background: "#060b16", border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                {slot.imagePreview
+                  ? <img src={slot.imagePreview} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+                  : <div style={{ width: 64, height: 64, background: C.border, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>👕</div>
+                }
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontWeight: 700, color: C.text, fontSize: 13 }}>{pat?.name || "—"}</span>
+                    <span style={{ fontWeight: 700, color: C.accent }}>{parseInt(slot.qty) || 0} ตัว</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.sub, marginBottom: 3 }}>
+                    {pt?.name !== "None" && pt?.name} {slot.colorNote && `· สี: ${slot.colorNote}`}
+                  </div>
+                  {slot.sizeBreakdown && <div style={{ fontSize: 11, color: C.muted }}>ไซส์: {slot.sizeBreakdown}</div>}
+                  {slot.slotNote && (
+                    <div style={{ fontSize: 11, color: C.accent, marginTop: 4, background: C.accent + "12", borderRadius: 4, padding: "3px 7px", display: "inline-block" }}>
+                      📝 {slot.slotNote}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OrderModule({ data, setData, setActiveOrder }) {
+  const [modal, setModal] = useState(false);
+  const [viewModal, setViewModal] = useState(null);
+  const [form, setForm] = useState({});
+  const [slots, setSlots] = useState([EMPTY_SLOT()]);
+  const [activeTab, setActiveTab] = useState("info");
+
+  const statusColor = (st) => ({ draft: C.muted, confirmed: C.accent2, production: C.ok, done: "#22c55e", cancelled: C.err }[st] || C.muted);
+
+  const openAdd = (o = null) => {
+    if (o) {
+      setForm({ ...o });
+      setSlots(o.slots && o.slots.length > 0 ? o.slots : [EMPTY_SLOT()]);
+    } else {
+      setForm({ date: new Date().toISOString().slice(0, 10), status: "draft" });
+      setSlots([EMPTY_SLOT()]);
+    }
+    setActiveTab("info");
+    setModal(true);
+  };
+
+  const save = () => {
+    const id = form.id || ("SO-" + Date.now().toString().slice(-4));
+    const totalQty = slots.reduce((s, sl) => s + (parseInt(sl.qty) || 0), 0);
+    const primarySlot = slots[0] || {};
+    setData(d => ({
+      ...d,
+      orders: [
+        ...d.orders.filter(o => o.id !== id),
+        {
+          ...form, id,
+          qty: totalQty,
+          patternId: primarySlot.patternId || form.patternId || data.patterns[0]?.id,
+          printTypeId: primarySlot.printTypeId || form.printTypeId || "PT001",
+          targetPrice: parseFloat(form.targetPrice) || 0,
+          slots,
+          specialNotice: form.specialNotice || "",
+        }
+      ]
+    }));
+    setModal(false);
+  };
+
+  const del = (id) => setData(d => ({ ...d, orders: d.orders.filter(o => o.id !== id) }));
+
+  const updateSlot = (idx, updated) => setSlots(sl => sl.map((s, i) => i === idx ? updated : s));
+  const removeSlot = (idx) => setSlots(sl => sl.filter((_, i) => i !== idx));
+  const addSlot = () => setSlots(sl => [...sl, EMPTY_SLOT()]);
+
+  const totalSlotsQty = slots.reduce((s, sl) => s + (parseInt(sl.qty) || 0), 0);
+
+  return (
+    <div>
+      <SectionHead title={t("orderTitle")} sub={t("orderSub")}
+        action={<button style={s.btn()} onClick={() => openAdd()}>{t("createOrder")}</button>} />
+
+      <Card>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>{[t("colId"), t("colCustomer"), t("colSlots"), t("colQty"), t("colTarget"), t("colDate"), t("colStatus"), ""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+          </thead>
+          <tbody>
+            {data.orders.length === 0 && (
+              <tr><td colSpan={8} style={{ ...s.td, textAlign: "center", color: C.muted, padding: 32 }}>ยังไม่มี Order — กดสร้าง Order ด้านบน</td></tr>
+            )}
+            {data.orders.map(o => (
+              <tr key={o.id} style={{ cursor: "pointer" }}>
+                <td style={{ ...s.td, color: C.accent, fontWeight: 700 }}>{o.id}</td>
+                <td style={s.td}>{o.customer}</td>
+                <td style={{ ...s.td, color: C.sub }}>
+                  {(o.slots || []).length > 0
+                    ? <span>{(o.slots || []).length} รายการ {o.slots?.some(sl => sl.imagePreview) ? "📷" : ""} {o.specialNotice ? "⚠️" : ""}</span>
+                    : <span style={{ color: C.muted }}>—</span>
+                  }
+                </td>
+                <td style={{ ...s.td, color: C.accent, fontWeight: 700 }}>{o.qty?.toLocaleString()} ตัว</td>
+                <td style={s.td}>{o.targetPrice ? `฿${fmt(o.targetPrice)}` : "-"}</td>
+                <td style={{ ...s.td, color: C.muted }}>{o.date}</td>
+                <td style={s.td}><Tag text={o.status} color={statusColor(o.status)} /></td>
+                <td style={s.td}>
+                  <button onClick={() => setViewModal(o)} style={{ ...s.btnGhost, padding: "3px 8px", marginRight: 4, fontSize: 11 }}>👁 ดู</button>
+                  <button onClick={() => setActiveOrder(o.id)} style={{ ...s.btn(C.accent2, true), padding: "4px 8px", marginRight: 4, fontSize: 11 }}>BOM</button>
+                  <button onClick={() => openAdd(o)} style={{ ...s.btnGhost, padding: "3px 8px", marginRight: 4, fontSize: 11 }}>แก้</button>
+                  <button onClick={() => del(o.id)} style={{ ...s.btnGhost, padding: "3px 8px", color: C.err, borderColor: C.err + "50", fontSize: 11 }}>ลบ</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      {/* CREATE / EDIT MODAL */}
+      {modal && (
+        <div style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, padding: 16, overflowY: "auto" }}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, width: "100%", maxWidth: 640, marginTop: 20, marginBottom: 20 }}>
+            {/* Modal Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${C.border}`, background: "#0a1020", borderRadius: "14px 14px 0 0" }}>
+              <span style={{ fontWeight: 700, color: C.accent, fontSize: 15 }}>{form.id ? `แก้ไข ${form.id}` : "สร้าง Order ใหม่"}</span>
+              <button onClick={() => setModal(false)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 22 }}>×</button>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
+              {[["info", t("tabInfo")], ["slots", `${t("tabSlots")} (${slots.length})`], ["notice", t("tabNotice")]].map(([id, label]) => (
+                <button key={id} onClick={() => setActiveTab(id)} style={{
+                  flex: 1, padding: "12px 8px", background: "none", border: "none", cursor: "pointer",
+                  fontFamily: "inherit", fontSize: 11, fontWeight: 600,
+                  color: activeTab === id ? C.accent : C.muted,
+                  borderBottom: activeTab === id ? `2px solid ${C.accent}` : "2px solid transparent",
+                }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ padding: 20 }}>
+              {/* TAB: INFO */}
+              {activeTab === "info" && (
+                <Row2>
+                  <Field label={t("customerName")}><input style={s.input} value={form.customer || ""} onChange={e => setForm(f => ({ ...f, customer: e.target.value }))} placeholder="e.g. Brand ABC" /></Field>
+                  <Field label={t("targetPrice")} half><input style={s.input} type="number" value={form.targetPrice || ""} onChange={e => setForm(f => ({ ...f, targetPrice: e.target.value }))} placeholder="฿" /></Field>
+                  <Field label={t("orderDate")} half><input style={s.input} type="date" value={form.date || ""} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} /></Field>
+                  <Field label={t("dueDate")} half><input style={s.input} type="date" value={form.dueDate || ""} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} /></Field>
+                  <Field label={t("orderStatus")} half>
+                    <select style={s.select} value={form.status || "draft"} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                      <option value="draft">{t("draft")}</option>
+                      <option value="confirmed">{t("confirmed")}</option>
+                      <option value="production">{t("production")}</option>
+                      <option value="done">{t("done")}</option>
+                      <option value="cancelled">{t("cancelled")}</option>
+                    </select>
+                  </Field>
+                  <Field label={t("orderChannel")} half>
+                    <select style={s.select} value={form.channel || ""} onChange={e => setForm(f => ({ ...f, channel: e.target.value }))}>
+                      <option value="">— {t("selectOrder")} —</option>
+                      <option value="direct">{t("channelDirect")}</option>
+                      <option value="line">LINE</option>
+                      <option value="email">Email</option>
+                      <option value="phone">โทรศัพท์</option>
+                      <option value="website">Website</option>
+                      <option value="agent">Agent</option>
+                    </select>
+                  </Field>
+                  <Field label="เบอร์ติดต่อ / Line ID" half><input style={s.input} value={form.contact || ""} onChange={e => setForm(f => ({ ...f, contact: e.target.value }))} placeholder="081-xxx-xxxx" /></Field>
+                </Row2>
+              )}
+
+              {/* TAB: SLOTS */}
+              {activeTab === "slots" && (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                    <div style={{ fontSize: 12, color: C.sub }}>Qty รวมทุกรายการ: <strong style={{ color: C.accent, fontSize: 15 }}>{totalSlotsQty.toLocaleString()} ตัว</strong></div>
+                    <button onClick={addSlot} style={{ ...s.btn(C.accent2, true), padding: "6px 14px", fontSize: 11 }}>+ เพิ่มรายการ</button>
+                  </div>
+                  {slots.map((slot, i) => (
+                    <ProductSlot key={slot.id || i} slot={slot} idx={i} data={data} onChange={updateSlot} onRemove={removeSlot} />
+                  ))}
+                </div>
+              )}
+
+              {/* TAB: NOTICE */}
+              {activeTab === "notice" && (
+                <div>
+                  <div style={{ marginBottom: 16, padding: "12px 14px", background: "#7f1d1d18", border: `1px solid ${C.err}30`, borderRadius: 8, fontSize: 12, color: C.sub }}>
+                    ⚠️ ใช้สำหรับบันทึกคำแนะนำพิเศษ เช่น ข้อกำหนดการผลิต, การแพ็คพิเศษ, วันที่ต้องส่งด่วน ฯลฯ
+                  </div>
+                  <Field label="หมายเหตุพิเศษของ Order นี้">
+                    <textarea
+                      style={{ ...s.input, height: 120, resize: "vertical", lineHeight: 1.6 }}
+                      value={form.specialNotice || ""}
+                      onChange={e => setForm(f => ({ ...f, specialNotice: e.target.value }))}
+                      placeholder={"เช่น:\n- ต้องส่งก่อนวันที่ 30 เม.ย.\n- แพ็คใส่ถุงแยกไซส์\n- ห้ามใช้ด้ายสีดำ\n- ลูกค้าต้องการ QC ก่อนส่ง 100%"}
+                    />
+                  </Field>
+                  <Field label="ลำดับความสำคัญ">
+                    <select style={s.select} value={form.priority || "normal"} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
+                      <option value="low">🟢 ปกติ (Low)</option>
+                      <option value="normal">🟡 กลาง (Normal)</option>
+                      <option value="high">🔴 ด่วน (High)</option>
+                      <option value="urgent">🚨 ด่วนมาก (Urgent)</option>
+                    </select>
+                  </Field>
+                  <Field label="ไฟล์แนบ / Link อ้างอิง">
+                    <input style={s.input} value={form.referenceLink || ""} onChange={e => setForm(f => ({ ...f, referenceLink: e.target.value }))} placeholder="https://drive.google.com/... หรือ link ตัวอย่าง" />
+                  </Field>
+                </div>
+              )}
+
+              {/* Footer buttons */}
+              <div style={{ display: "flex", gap: 8, marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+                <button style={s.btn()} onClick={save}>💾 บันทึก Order</button>
+                <button style={s.btnGhost} onClick={() => setModal(false)}>ยกเลิก</button>
+                {activeTab !== "slots" && (
+                  <button style={{ ...s.btnGhost, marginLeft: "auto" }} onClick={() => setActiveTab("slots")}>
+                    ถัดไป: รายการสินค้า →
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW DETAIL MODAL */}
+      {viewModal && <OrderDetailModal order={viewModal} data={data} onClose={() => setViewModal(null)} />}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: BOM (ENHANCED — with Purchase Bills & Price Comparison)
+// ═══════════════════════════════════════════════════════════════
+
+const EMPTY_BILL = () => ({
+  id: "BILL-" + Date.now().toString().slice(-5),
+  invoiceNo: "",
+  supplier: "",
+  date: new Date().toISOString().slice(0, 10),
+  items: [{ materialName: "", qty: "", unit: "", pricePerUnit: "", totalAmount: "", note: "" }],
+  receiptImage: null,
+  status: "pending",
+  paidDate: "",
+});
+
+function BillModal({ bill, onSave, onClose, suppliers }) {
+  const [form, setForm] = useState({ ...bill });
+
+  const updateItem = (idx, field, val) => {
+    const items = form.items.map((it, i) => {
+      if (i !== idx) return it;
+      const updated = { ...it, [field]: val };
+      if (field === "qty" || field === "pricePerUnit") {
+        updated.totalAmount = ((parseFloat(updated.qty) || 0) * (parseFloat(updated.pricePerUnit) || 0)).toFixed(2);
+      }
+      return updated;
+    });
+    setForm(f => ({ ...f, items }));
+  };
+
+  const addItem = () => setForm(f => ({ ...f, items: [...f.items, { materialName: "", qty: "", unit: "", pricePerUnit: "", totalAmount: "", note: "" }] }));
+  const removeItem = (idx) => setForm(f => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
+
+  const grandTotal = form.items.reduce((s, it) => s + (parseFloat(it.totalAmount) || 0), 0);
+
+  const handleReceipt = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setForm(f => ({ ...f, receiptImage: ev.target.result }));
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000d", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1200, padding: 16, overflowY: "auto" }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, width: "100%", maxWidth: 700, marginTop: 20, marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${C.border}`, background: "#0a1020", borderRadius: "14px 14px 0 0" }}>
+          <span style={{ fontWeight: 700, color: C.accent, fontSize: 15 }}>🧾 {form.id ? `บิล ${form.id}` : "บันทึกบิลใหม่"}</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 22 }}>×</button>
+        </div>
+
+        <div style={{ padding: 20 }}>
+          {/* Bill Header Info */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 18 }}>
+            <div style={{ gridColumn: "1/3" }}>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>เลขที่ใบเสร็จ / Invoice No.</div>
+              <input style={s.input} placeholder="เช่น INV-2024-001" value={form.invoiceNo || ""} onChange={e => setForm(f => ({ ...f, invoiceNo: e.target.value }))} />
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>วันที่ซื้อ</div>
+              <input style={s.input} type="date" value={form.date || ""} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+            </div>
+            <div style={{ gridColumn: "1/3" }}>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>ชื่อ Supplier</div>
+              <input style={s.input} placeholder="ชื่อร้านหรือ Supplier" value={form.supplier || ""} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))} list="supplier-list" />
+              <datalist id="supplier-list">
+                {(suppliers || []).map(sup => <option key={sup.id} value={sup.name} />)}
+              </datalist>
+            </div>
+            <div>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>สถานะการชำระ</div>
+              <select style={s.select} value={form.status || "pending"} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                <option value="pending">⏳ รอชำระ</option>
+                <option value="paid">✅ จ่ายแล้ว</option>
+                <option value="partial">💛 จ่ายบางส่วน</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Receipt Image Upload */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>📷 ถ่ายรูปใบเสร็จ / สแกนบิล</div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+              <label style={{ cursor: "pointer", flexShrink: 0 }}>
+                <div style={{
+                  width: 90, height: 90, borderRadius: 8,
+                  border: `2px dashed ${form.receiptImage ? C.ok : C.border}`,
+                  background: form.receiptImage ? "transparent" : "#060b16",
+                  display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden"
+                }}>
+                  {form.receiptImage
+                    ? <img src={form.receiptImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : <div style={{ textAlign: "center" }}><div style={{ fontSize: 26, opacity: 0.3 }}>🧾</div><div style={{ fontSize: 9, color: C.muted, marginTop: 3 }}>อัปโหลด</div></div>
+                  }
+                </div>
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleReceipt} />
+              </label>
+              <div style={{ flex: 1, fontSize: 12, color: C.sub, lineHeight: 1.7 }}>
+                อัปโหลดภาพใบเสร็จ หรือรูปถ่ายบิลจากร้านค้า<br />
+                เพื่อใช้ตรวจสอบกับรายการที่กรอกด้านล่าง
+                {form.receiptImage && <div><button onClick={() => setForm(f => ({ ...f, receiptImage: null }))} style={{ ...s.btnGhost, padding: "3px 10px", fontSize: 11, color: C.err, borderColor: C.err + "50", marginTop: 6 }}>× ลบรูป</button></div>}
+              </div>
+            </div>
+          </div>
+
+          {/* Material Line Items */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>รายการวัตถุดิบในบิลนี้</div>
+            <button onClick={addItem} style={{ ...s.btn(C.accent2, true), padding: "5px 12px", fontSize: 11 }}>+ เพิ่มรายการ</button>
+          </div>
+
+          <div style={{ background: "#060b16", borderRadius: 8, overflow: "hidden", marginBottom: 16 }}>
+            {/* Header Row */}
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 32px", gap: 6, padding: "8px 10px", borderBottom: `1px solid ${C.border}` }}>
+              {["รายการ", "จำนวน", "หน่วย", "ราคา/หน่วย", "รวม", ""].map(h => (
+                <div key={h} style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>{h}</div>
+              ))}
+            </div>
+            {form.items.map((item, i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 32px", gap: 6, padding: "8px 10px", borderBottom: i < form.items.length - 1 ? `1px solid ${C.border}20` : "none", alignItems: "center" }}>
+                <input style={{ ...s.input, fontSize: 12, padding: "6px 8px" }} placeholder="ชื่อวัตถุดิบ" value={item.materialName} onChange={e => updateItem(i, "materialName", e.target.value)} />
+                <input style={{ ...s.input, fontSize: 12, padding: "6px 8px" }} type="number" placeholder="0" value={item.qty} onChange={e => updateItem(i, "qty", e.target.value)} />
+                <input style={{ ...s.input, fontSize: 12, padding: "6px 8px" }} placeholder="m / pcs" value={item.unit} onChange={e => updateItem(i, "unit", e.target.value)} />
+                <input style={{ ...s.input, fontSize: 12, padding: "6px 8px" }} type="number" placeholder="฿" value={item.pricePerUnit} onChange={e => updateItem(i, "pricePerUnit", e.target.value)} />
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, textAlign: "right" }}>
+                  {item.totalAmount ? `฿${parseFloat(item.totalAmount).toLocaleString()}` : "—"}
+                </div>
+                {form.items.length > 1
+                  ? <button onClick={() => removeItem(i)} style={{ background: "none", border: "none", color: C.err, cursor: "pointer", fontSize: 14, padding: 0 }}>×</button>
+                  : <div />
+                }
+              </div>
+            ))}
+            {/* Grand Total */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 10px", background: "#0a1020", borderTop: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>ยอดรวมบิลนี้</span>
+              <span style={{ fontSize: 20, fontWeight: 800, color: C.accent }}>฿{grandTotal.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button style={s.btn()} onClick={() => onSave(form)}>💾 บันทึกบิล</button>
+            <button style={s.btnGhost} onClick={onClose}>ยกเลิก</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BOMModule({ data, setData, activeOrderId, setActiveModule }) {
+  const order = data.orders.find(o => o.id === activeOrderId) || data.orders[0];
+  const [selOrder, setSelOrder] = useState(order?.id || "");
+  const [activeTab, setActiveTab] = useState("bom");
+  const [billModal, setBillModal] = useState(null);
+  const [editBill, setEditBill] = useState(null);
+  const [compareItem, setCompareItem] = useState(null);
+
+  const bills = (data.bills || []);
+
+  const ord = data.orders.find(o => o.id === selOrder);
+  const pat = ord && data.patterns.find(p => p.id === ord.patternId);
+  const fab = pat && data.fabrics.find(f => f.id === pat.fabricId);
+  const pt = ord && data.printTypes.find(p => p.id === ord.printTypeId);
+
+  const stockItems = ord && pat ? (() => {
+    const items = [];
+    const fabNeeded = pat.fabricPerUnit * ord.qty;
+    const fabHave = data.stock[pat.fabricId] || 0;
+    items.push({ id: pat.fabricId, name: fab?.name || pat.fabricId, type: "Fabric", needed: fabNeeded.toFixed(2), have: fabHave, ok: fabHave >= fabNeeded, unit: fab?.unit || "m", costEach: fab?.costPerUnit || 0, totalCost: (fab?.costPerUnit || 0) * fabNeeded });
+    pat.accessories.forEach(a => {
+      const acc = data.accessories.find(x => x.id === a.accId);
+      const needed = Math.ceil(a.qtyPerUnit * ord.qty);
+      const have = data.stock[a.accId] || 0;
+      items.push({ id: a.accId, name: acc?.name || a.accId, type: "Trim", needed, have, ok: have >= needed, unit: acc?.unit || "pcs", costEach: acc?.costPerUnit || 0, totalCost: (acc?.costPerUnit || 0) * needed });
+    });
+    return items;
+  })() : [];
+
+  const saveBill = (form) => {
+    setData(d => ({
+      ...d,
+      bills: [...(d.bills || []).filter(b => b.id !== form.id), form]
+    }));
+    setBillModal(false);
+    setEditBill(null);
+  };
+
+  const deleteBill = (id) => setData(d => ({ ...d, bills: (d.bills || []).filter(b => b.id !== id) }));
+
+  // Build price comparison: for each BOM material, find all bills that contain it
+  const buildComparison = (materialName) => {
+    const results = [];
+    (data.bills || []).forEach(bill => {
+      (bill.items || []).forEach(item => {
+        if (item.materialName.toLowerCase().includes(materialName.toLowerCase())) {
+          results.push({
+            billId: bill.id,
+            invoiceNo: bill.invoiceNo,
+            supplier: bill.supplier,
+            date: bill.date,
+            qty: item.qty,
+            unit: item.unit,
+            pricePerUnit: parseFloat(item.pricePerUnit) || 0,
+            totalAmount: parseFloat(item.totalAmount) || 0,
+          });
+        }
+      });
+    });
+    return results.sort((a, b) => a.pricePerUnit - b.pricePerUnit);
+  };
+
+  const statusColor = (st) => ({ paid: C.ok, pending: "#eab308", partial: C.accent2 }[st] || C.muted);
+  const statusLabel = (st) => ({ paid: "✅ จ่ายแล้ว", pending: "⏳ รอชำระ", partial: "💛 บางส่วน" }[st] || st);
+
+  const totalBillsPaid = bills.filter(b => b.status === "paid").reduce((s, b) => s + b.items.reduce((ss, it) => ss + (parseFloat(it.totalAmount) || 0), 0), 0);
+  const totalBillsPending = bills.filter(b => b.status !== "paid").reduce((s, b) => s + b.items.reduce((ss, it) => ss + (parseFloat(it.totalAmount) || 0), 0), 0);
+
+  return (
+    <div>
+      <SectionHead title={t("bomTitle")} sub={t("bomSub")} />
+
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 0, marginBottom: 16, background: "#060b16", borderRadius: 10, padding: 4, border: `1px solid ${C.border}` }}>
+        {[["bom", t("tabBom")], ["bills", `${t("tabBills")} (${bills.length})`], ["compare", t("tabCompare")]].map(([id, label]) => (
+          <button key={id} onClick={() => setActiveTab(id)} style={{
+            flex: 1, padding: "8px 6px", background: activeTab === id ? C.accent : "none",
+            color: activeTab === id ? C.bg : C.muted, border: "none", borderRadius: 7,
+            cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700, transition: "all 0.2s"
+          }}>{label}</button>
+        ))}
+      </div>
+
+      {/* ══ TAB: BOM ══ */}
+      {activeTab === "bom" && (
+        <>
+          <Card style={{ marginBottom: 14 }}>
+            <Field label="เลือก Order">
+              <select style={s.select} value={selOrder} onChange={e => setSelOrder(e.target.value)}>
+                {data.orders.map(o => <option key={o.id} value={o.id}>{o.id} — {o.customer} ({o.qty} ตัว)</option>)}
+              </select>
+            </Field>
+          </Card>
+
+          {ord && pat && (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
+                {[["Order", ord.id], ["ลูกค้า", ord.customer], ["Pattern", pat.name], ["Qty", ord.qty?.toLocaleString() + " ตัว"]].map(([k, v]) => (
+                  <div key={k} style={{ background: "#060b16", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
+                    <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase" }}>{k}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.accent, marginTop: 3 }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+
+              <Card>
+                <div style={{ fontWeight: 700, color: C.text, fontSize: 13, marginBottom: 12, paddingBottom: 10, borderBottom: `1px solid ${C.border}` }}>รายการวัตถุดิบ</div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>{["รายการ", "ประเภท", "ใช้/ตัว", "รวมต้องการ", "มีในสต๊อก", "ราคา Master", "ต้นทุนรวม", "สถานะ", ""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {stockItems.map((item, i) => {
+                      const comparisons = buildComparison(item.name);
+                      const lowestBill = comparisons[0];
+                      const priceDiff = lowestBill ? lowestBill.pricePerUnit - item.costEach : null;
+                      return (
+                        <tr key={i}>
+                          <td style={s.td}>{item.name}</td>
+                          <td style={s.td}><Tag text={item.type} color={item.type === "Fabric" ? C.accent : C.accent2} /></td>
+                          <td style={{ ...s.td, color: C.sub }}>{i === 0 ? pat.fabricPerUnit + " " + (fab?.unit || "m") : pat.accessories[i - 1]?.qtyPerUnit + " " + item.unit}</td>
+                          <td style={{ ...s.td, color: C.accent }}>{item.needed} {item.unit}</td>
+                          <td style={{ ...s.td, color: item.ok ? C.ok : C.err }}>{item.have} {item.unit}</td>
+                          <td style={s.td}>
+                            ฿{fmt(item.costEach)}
+                            {priceDiff !== null && (
+                              <div style={{ fontSize: 10, color: priceDiff > 0 ? C.err : C.ok }}>
+                                {priceDiff > 0 ? `▲ บิลแพงกว่า +฿${fmt(priceDiff)}` : `▼ บิลถูกกว่า ฿${fmt(Math.abs(priceDiff))}`}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ ...s.td, color: C.accent }}>฿{fmt(item.totalCost)}</td>
+                          <td style={s.td}>
+                            {item.ok
+                              ? <Tag text="✓ จองสต๊อก" color={C.ok} />
+                              : <Tag text={`✗ ขาด ${(parseFloat(item.needed) - item.have).toLocaleString()} ${item.unit}`} color={C.err} />}
+                          </td>
+                          <td style={s.td}>
+                            {comparisons.length > 0 && (
+                              <button onClick={() => { setCompareItem(item.name); setActiveTab("compare"); }}
+                                style={{ ...s.btnGhost, padding: "3px 8px", fontSize: 10 }}>⚖️ {comparisons.length} บิล</button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {pt && pt.name !== "None" && (
+                      <tr>
+                        <td style={s.td}>{pt.name}</td>
+                        <td style={s.td}><Tag text="Print/EMB" color="#8b5cf6" /></td>
+                        <td style={{ ...s.td, color: C.sub }}>1 ตัว</td>
+                        <td style={{ ...s.td, color: C.accent }}>{ord.qty} ตัว</td>
+                        <td style={{ ...s.td, color: C.muted }}>—</td>
+                        <td style={s.td}>฿{fmt(pt.costPerUnit)}</td>
+                        <td style={{ ...s.td, color: C.accent }}>฿{fmt(pt.costPerUnit * ord.qty)}</td>
+                        <td style={s.td}><Tag text="จ้างภายนอก" color="#f59e0b" /></td>
+                        <td style={s.td} />
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#060b16", borderRadius: 6, display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 12, color: C.sub }}>ต้นทุนวัตถุดิบรวม (excl. labor/overhead)</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: C.accent }}>฿{fmt(stockItems.reduce((s, i) => s + i.totalCost, 0) + (pt && pt.name !== "None" ? pt.costPerUnit * ord.qty : 0))}</span>
+                </div>
+              </Card>
+
+              {stockItems.some(i => !i.ok) && (
+                <div style={{ marginTop: 12, padding: 14, background: C.err + "10", border: `1px solid ${C.err}40`, borderRadius: 8 }}>
+                  <div style={{ fontWeight: 700, color: C.err, marginBottom: 6 }}>⚠️ ต้องออกใบสั่งซื้อ (PO) สำหรับ:</div>
+                  {stockItems.filter(i => !i.ok).map((item, i) => (
+                    <div key={i} style={{ fontSize: 12, color: C.sub, marginLeft: 16 }}>• {item.name}: ขาด {(parseFloat(item.needed) - item.have).toLocaleString()} {item.unit}</div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      {/* ══ TAB: BILLS ══ */}
+      {activeTab === "bills" && (
+        <>
+          {/* Summary */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+            {[
+              ["🧾 บิลทั้งหมด", bills.length + " บิล", C.accent],
+              ["✅ จ่ายแล้ว", "฿" + totalBillsPaid.toLocaleString(), C.ok],
+              ["⏳ ค้างชำระ", "฿" + totalBillsPending.toLocaleString(), "#eab308"],
+            ].map(([label, val, color]) => (
+              <div key={label} style={{ background: "#060b16", border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontSize: 10, color: C.muted }}>{label}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color, marginTop: 4 }}>{val}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+            <button style={s.btn()} onClick={() => { setEditBill(EMPTY_BILL()); setBillModal(true); }}>+ บันทึกบิลใหม่</button>
+          </div>
+
+          {bills.length === 0 && (
+            <div style={{ textAlign: "center", padding: 40, color: C.muted, fontSize: 13 }}>ยังไม่มีบิล — กด "บันทึกบิลใหม่" เพื่อเริ่ม</div>
+          )}
+
+          {bills.map(bill => {
+            const billTotal = bill.items.reduce((s, it) => s + (parseFloat(it.totalAmount) || 0), 0);
+            return (
+              <div key={bill.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                  <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                    {/* Receipt thumbnail */}
+                    {bill.receiptImage
+                      ? <img src={bill.receiptImage} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: `1px solid ${C.border}`, flexShrink: 0 }} />
+                      : <div style={{ width: 48, height: 48, background: "#060b16", border: `1px dashed ${C.border}`, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🧾</div>
+                    }
+                    <div>
+                      <div style={{ fontWeight: 700, color: C.accent, fontSize: 14 }}>{bill.invoiceNo || bill.id}</div>
+                      <div style={{ fontSize: 12, color: C.sub, marginTop: 2 }}>🏭 {bill.supplier} · 📅 {bill.date}</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{bill.items.length} รายการ</div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: C.accent }}>฿{billTotal.toLocaleString()}</div>
+                    <Tag text={statusLabel(bill.status)} color={statusColor(bill.status)} />
+                  </div>
+                </div>
+
+                {/* Items preview */}
+                <div style={{ background: "#060b16", borderRadius: 8, overflow: "hidden", marginBottom: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
+                    {["รายการ", "จำนวน", "ราคา/หน่วย", "รวม"].map(h => <div key={h} style={{ fontSize: 9, color: C.muted, textTransform: "uppercase" }}>{h}</div>)}
+                  </div>
+                  {bill.items.map((item, i) => (
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", padding: "7px 10px", borderBottom: i < bill.items.length - 1 ? `1px solid ${C.border}15` : "none" }}>
+                      <div style={{ fontSize: 12, color: C.text }}>{item.materialName || "—"}</div>
+                      <div style={{ fontSize: 12, color: C.sub }}>{item.qty} {item.unit}</div>
+                      <div style={{ fontSize: 12, color: C.sub }}>฿{item.pricePerUnit}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.accent }}>฿{parseFloat(item.totalAmount || 0).toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => { setEditBill(bill); setBillModal(true); }} style={{ ...s.btnGhost, padding: "4px 12px", fontSize: 11 }}>✏️ แก้ไข</button>
+                  <button onClick={() => deleteBill(bill.id)} style={{ ...s.btnGhost, padding: "4px 12px", fontSize: 11, color: C.err, borderColor: C.err + "50" }}>🗑 ลบ</button>
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {/* ══ TAB: PRICE COMPARE ══ */}
+      {activeTab === "compare" && (
+        <>
+          <Card style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>ค้นหาวัตถุดิบเพื่อเปรียบราคา</div>
+            <input style={s.input} placeholder="พิมพ์ชื่อผ้า หรือวัตถุดิบ เช่น Cotton, Zipper..." value={compareItem || ""} onChange={e => setCompareItem(e.target.value)} />
+          </Card>
+
+          {compareItem && (() => {
+            const results = buildComparison(compareItem);
+            if (results.length === 0) return (
+              <div style={{ textAlign: "center", padding: 32, color: C.muted, fontSize: 13 }}>ไม่พบรายการ "{compareItem}" ในบิลที่บันทึกไว้</div>
+            );
+            const lowest = results[0];
+            const highest = results[results.length - 1];
+            return (
+              <>
+                {/* Summary Stats */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+                  <div style={{ background: "#060b16", border: `1px solid ${C.ok}40`, borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ fontSize: 10, color: C.muted }}>💚 ราคาถูกสุด</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: C.ok, marginTop: 4 }}>฿{fmt(lowest.pricePerUnit)}</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{lowest.supplier}</div>
+                  </div>
+                  <div style={{ background: "#060b16", border: `1px solid ${C.err}40`, borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ fontSize: 10, color: C.muted }}>🔴 ราคาแพงสุด</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: C.err, marginTop: 4 }}>฿{fmt(highest.pricePerUnit)}</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{highest.supplier}</div>
+                  </div>
+                  <div style={{ background: "#060b16", border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ fontSize: 10, color: C.muted }}>📊 ส่วนต่าง</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: C.accent, marginTop: 4 }}>฿{fmt(highest.pricePerUnit - lowest.pricePerUnit)}</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{results.length} บิลที่พบ</div>
+                  </div>
+                </div>
+
+                {/* Comparison Table */}
+                <Card>
+                  <div style={{ fontWeight: 700, color: C.text, fontSize: 13, marginBottom: 12 }}>
+                    ผลเปรียบราคา "{compareItem}" — เรียงจากถูกที่สุด
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead><tr>{["อันดับ", "Supplier", "Invoice No.", "วันที่", "จำนวน", "ราคา/หน่วย", "รวม", ""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {results.map((r, i) => (
+                        <tr key={i} style={{ background: i === 0 ? C.ok + "08" : "none" }}>
+                          <td style={{ ...s.td, textAlign: "center" }}>
+                            {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+                          </td>
+                          <td style={{ ...s.td, fontWeight: 600, color: C.text }}>{r.supplier}</td>
+                          <td style={{ ...s.td, color: C.muted }}>{r.invoiceNo || r.billId}</td>
+                          <td style={{ ...s.td, color: C.muted }}>{r.date}</td>
+                          <td style={s.td}>{r.qty} {r.unit}</td>
+                          <td style={{ ...s.td, fontWeight: 700, color: i === 0 ? C.ok : i === results.length - 1 ? C.err : C.text }}>
+                            ฿{fmt(r.pricePerUnit)}
+                          </td>
+                          <td style={{ ...s.td, color: C.accent }}>฿{r.totalAmount.toLocaleString()}</td>
+                          <td style={s.td}>
+                            {i === 0 && <Tag text="ถูกสุด" color={C.ok} />}
+                            {i === results.length - 1 && results.length > 1 && <Tag text="แพงสุด" color={C.err} />}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* Price bar chart visual */}
+                  <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>กราฟเปรียบราคา</div>
+                    {results.map((r, i) => {
+                      const pct = highest.pricePerUnit > 0 ? (r.pricePerUnit / highest.pricePerUnit) * 100 : 100;
+                      const barColor = i === 0 ? C.ok : i === results.length - 1 ? C.err : C.accent2;
+                      return (
+                        <div key={i} style={{ marginBottom: 8 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                            <div style={{ fontSize: 11, color: C.sub }}>{r.supplier}</div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: barColor }}>฿{fmt(r.pricePerUnit)}</div>
+                          </div>
+                          <div style={{ background: C.border, borderRadius: 4, height: 8 }}>
+                            <div style={{ width: pct + "%", height: "100%", background: barColor, borderRadius: 4, transition: "width 0.6s ease" }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              </>
+            );
+          })()}
+
+          {!compareItem && (
+            <div style={{ textAlign: "center", padding: 40 }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>⚖️</div>
+              <div style={{ color: C.sub, fontSize: 14, marginBottom: 6 }}>พิมพ์ชื่อวัตถุดิบด้านบน</div>
+              <div style={{ color: C.muted, fontSize: 12 }}>เพื่อดูราคาเปรียบเทียบจากทุก Supplier ที่เคยซื้อ</div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Bill Modal */}
+      {billModal && editBill && (
+        <BillModal bill={editBill} onSave={saveBill} onClose={() => { setBillModal(false); setEditBill(null); }} suppliers={data.suppliers} />
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: INVENTORY
+// ═══════════════════════════════════════════════════════════════
+
+function InventoryModule({ data, setData }) {
+  const [adjustModal, setAdjustModal] = useState(null);
+  const [adj, setAdj] = useState({ qty: "", reason: "" });
+
+  const allItems = [
+    ...data.fabrics.map(f => ({ ...f, itemType: "Fabric", stockKey: f.id })),
+    ...data.accessories.map(a => ({ ...a, itemType: "Trim", stockKey: a.id })),
+  ];
+
+  const saveAdj = () => {
+    const delta = parseFloat(adj.qty) || 0;
+    setData(d => ({ ...d, stock: { ...d.stock, [adjustModal]: Math.max(0, (d.stock[adjustModal] || 0) + delta) } }));
+    setAdjustModal(null);
+    setAdj({ qty: "", reason: "" });
+  };
+
+  const lowItems = allItems.filter(i => (data.stock[i.stockKey] || 0) < 100);
+
+  return (
+    <div>
+      <SectionHead title={t("invTitle")} sub={t("invSub")} />
+
+      {lowItems.length > 0 && (
+        <div style={{ padding: 12, background: "#7f1d1d20", border: `1px solid ${C.err}40`, borderRadius: 8, marginBottom: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: C.err, fontWeight: 700 }}>⚠️ สต๊อกต่ำ:</span>
+          {lowItems.map(i => <Tag key={i.id} text={`${i.name} (${data.stock[i.stockKey] || 0})`} color={C.err} />)}
+        </div>
+      )}
+
+      <Card>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr>{["ID", "รายการ", "ประเภท", "Qty ในสต๊อก", "หน่วย", "ราคา/unit", "มูลค่า", "Status", ""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+          <tbody>
+            {allItems.map(item => {
+              const qty = data.stock[item.stockKey] || 0;
+              const status = qty === 0 ? "หมด" : qty < 50 ? "วิกฤต" : qty < 150 ? "ต่ำ" : "ปกติ";
+              const sc = { หมด: C.err, วิกฤต: "#f97316", ต่ำ: "#eab308", ปกติ: C.ok }[status];
+              return (
+                <tr key={item.id}>
+                  <td style={{ ...s.td, color: C.muted }}>{item.id}</td>
+                  <td style={s.td}>{item.name}</td>
+                  <td style={s.td}><Tag text={item.itemType} color={item.itemType === "Fabric" ? C.accent : C.accent2} /></td>
+                  <td style={{ ...s.td, fontWeight: 700, color: qty < 100 ? C.err : C.ok, fontSize: 14 }}>{qty.toLocaleString()}</td>
+                  <td style={s.td}>{item.unit}</td>
+                  <td style={s.td}>฿{fmt(item.costPerUnit)}</td>
+                  <td style={{ ...s.td, color: C.accent }}>฿{fmt(qty * item.costPerUnit)}</td>
+                  <td style={s.td}><Tag text={status} color={sc} /></td>
+                  <td style={s.td}>
+                    <button onClick={() => setAdjustModal(item.stockKey)} style={{ ...s.btn(C.accent2, true), padding: "4px 10px" }}>ปรับ</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <div style={{ marginTop: 10, padding: "8px 12px", background: "#060b16", borderRadius: 6, display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 12, color: C.muted }}>มูลค่าสต๊อกรวม</span>
+          <span style={{ fontWeight: 700, color: C.accent }}>
+            ฿{fmt(allItems.reduce((sum, i) => sum + (data.stock[i.stockKey] || 0) * i.costPerUnit, 0))}
+          </span>
+        </div>
+      </Card>
+
+      {adjustModal && (
+        <Modal title="ปรับ Stock" onClose={() => setAdjustModal(null)}>
+          <div style={{ marginBottom: 12, color: C.sub, fontSize: 12 }}>รายการ: {allItems.find(i => i.stockKey === adjustModal)?.name}</div>
+          <div style={{ marginBottom: 12, color: C.text, fontSize: 14 }}>ปัจจุบัน: <strong>{(data.stock[adjustModal] || 0).toLocaleString()}</strong></div>
+          <Field label="เพิ่ม/ลด จำนวน (ใส่ - เพื่อตัดสต๊อก)"><input style={s.input} type="number" value={adj.qty} onChange={e => setAdj(a => ({ ...a, qty: e.target.value }))} placeholder="เช่น +200 หรือ -50" /></Field>
+          <Field label="เหตุผล"><input style={s.input} value={adj.reason} onChange={e => setAdj(a => ({ ...a, reason: e.target.value }))} placeholder="รับของ / ตัดสต๊อก / สต๊อกเสีย" /></Field>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button style={s.btn()} onClick={saveAdj}>บันทึก</button>
+            <button style={s.btnGhost} onClick={() => setAdjustModal(null)}>ยกเลิก</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: COSTING + PRICING
+// ═══════════════════════════════════════════════════════════════
+
+function CostingModule({ data }) {
+  const [selOrder, setSelOrder] = useState(data.orders[0]?.id || "");
+  const [mode, setMode] = useState("margin");
+  const [margin, setMargin] = useState(30);
+  const [sellPrice, setSellPrice] = useState("");
+
+  const ord = data.orders.find(o => o.id === selOrder);
+  const cost = ord ? calcCost(ord, data.patterns, data.fabrics, data.accessories, data.printTypes, data.costRates) : null;
+  const pat = ord && data.patterns.find(p => p.id === ord.patternId);
+
+  const finalSell = mode === "margin"
+    ? (cost ? cost.totalPerUnit * (1 + margin / 100) : 0)
+    : (parseFloat(sellPrice) || (cost?.totalPerUnit || 0));
+
+  const profitPerUnit = cost ? finalSell - cost.totalPerUnit : 0;
+  const profitTotal = profitPerUnit * (ord?.qty || 0);
+  const marginActual = finalSell > 0 ? (profitPerUnit / finalSell) * 100 : 0;
+
+  return (
+    <div>
+      <SectionHead title={t("costTitle")} sub={t("costSub")} />
+      <Card style={{ marginBottom: 14 }}>
+        <Field label="เลือก Order">
+          <select style={s.select} value={selOrder} onChange={e => setSelOrder(e.target.value)}>
+            {data.orders.map(o => <option key={o.id} value={o.id}>{o.id} — {o.customer} ({o.qty} ตัว)</option>)}
+          </select>
+        </Field>
+      </Card>
+
+      {cost && ord && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            {/* Cost Breakdown */}
+            <Card>
+              <div style={{ fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${C.border}` }}>ต้นทุน / ตัว</div>
+              {[
+                [`Fabric (${pat?.fabricPerUnit}${data.fabrics.find(f => f.id === pat?.fabricId)?.unit || "m"} × ฿${data.fabrics.find(f => f.id === pat?.fabricId)?.costPerUnit})`, cost.fabricCost],
+                ["Trim & Accessories", cost.trimCost],
+                [`Labor (ตัด+เย็บ+QC)`, cost.laborCost],
+                ...(cost.printCost > 0 ? [[data.printTypes.find(p => p.id === ord.printTypeId)?.name || "Print", cost.printCost]] : []),
+                [`Overhead (${data.costRates.overheadRate}%)`, cost.overhead],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12, borderBottom: `1px solid #0a1020` }}>
+                  <span style={{ color: C.sub }}>{k}</span>
+                  <span style={{ color: C.text }}>฿{fmt(v)}</span>
+                </div>
+              ))}
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", marginTop: 4 }}>
+                <span style={{ fontWeight: 700, color: C.text }}>รวมต้นทุน / ตัว</span>
+                <span style={{ fontWeight: 700, fontSize: 18, color: C.accent }}>฿{fmt(cost.totalPerUnit)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+                <span style={{ fontSize: 12, color: C.muted }}>รวมทั้งหมด ({ord.qty?.toLocaleString()} ตัว)</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: C.accent }}>฿{fmt(cost.totalCost)}</span>
+              </div>
+              {ord.targetPrice > 0 && (
+                <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 6, background: ord.targetPrice >= cost.totalPerUnit ? C.ok + "15" : C.err + "15", border: `1px solid ${ord.targetPrice >= cost.totalPerUnit ? C.ok : C.err}40` }}>
+                  <div style={{ fontSize: 11, color: C.muted }}>ราคาเป้าหมายลูกค้า vs ต้นทุน</div>
+                  <div style={{ fontWeight: 700, color: ord.targetPrice >= cost.totalPerUnit ? C.ok : C.err }}>
+                    ฿{fmt(ord.targetPrice)} / ตัว {ord.targetPrice >= cost.totalPerUnit ? "✓ กำไร" : "✗ ขาดทุน"}
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Pricing */}
+            <Card>
+              <div style={{ fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${C.border}` }}>ตั้งราคาขาย</div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                {[["margin", "🎯 Margin %"], ["manual", "✏️ ราคาเอง"]].map(([m, l]) => (
+                  <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "8px", border: "none", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, background: mode === m ? C.accent : "#060b16", color: mode === m ? "#000" : C.muted }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              {mode === "margin" ? (
+                <div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Margin: <strong style={{ color: C.accent }}>{margin}%</strong></div>
+                  <input type="range" min={0} max={100} value={margin} onChange={e => setMargin(Number(e.target.value))} style={{ width: "100%", accentColor: C.accent }} />
+                </div>
+              ) : (
+                <Field label="ราคาขาย / ตัว (฿)"><input style={s.input} type="number" value={sellPrice} onChange={e => setSellPrice(e.target.value)} placeholder={`แนะนำ ฿${fmt(cost.totalPerUnit * 1.3)}`} /></Field>
+              )}
+              <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[["ราคาขาย/ตัว", `฿${fmt(finalSell)}`, C.accent], ["กำไร/ตัว", `฿${fmt(profitPerUnit)}`, profitPerUnit >= 0 ? C.ok : C.err], ["Margin จริง", `${marginActual.toFixed(1)}%`, profitPerUnit >= 0 ? C.ok : C.err], ["กำไรรวม", `฿${fmt(profitTotal)}`, profitTotal >= 0 ? C.ok : C.err]].map(([k, v, c]) => (
+                  <div key={k} style={{ background: "#060b16", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase" }}>{k}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: c, marginTop: 3 }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: REPORTS
+// ═══════════════════════════════════════════════════════════════
+
+function ReportModule({ data }) {
+  const [selOrder, setSelOrder] = useState(data.orders[0]?.id || "");
+  const [report, setReport] = useState("quotation");
+
+  const ord = data.orders.find(o => o.id === selOrder);
+  const pat = ord && data.patterns.find(p => p.id === ord.patternId);
+  const fab = pat && data.fabrics.find(f => f.id === pat.fabricId);
+  const pt = ord && data.printTypes.find(p => p.id === ord.printTypeId);
+  const cost = ord ? calcCost(ord, data.patterns, data.fabrics, data.accessories, data.printTypes, data.costRates) : null;
+  const finalSell = cost ? cost.totalPerUnit * 1.3 : 0;
+  const profit = cost ? (finalSell - cost.totalPerUnit) * ord.qty : 0;
+
+  const stockItems = ord && pat ? (() => {
+    const items = [];
+    const fabNeeded = pat.fabricPerUnit * ord.qty;
+    const fabHave = data.stock[pat.fabricId] || 0;
+    items.push({ name: fab?.name, needed: fabNeeded.toFixed(1), have: fabHave, ok: fabHave >= fabNeeded, unit: fab?.unit || "m" });
+    pat.accessories.forEach(a => {
+      const acc = data.accessories.find(x => x.id === a.accId);
+      const needed = Math.ceil(a.qtyPerUnit * ord.qty);
+      const have = data.stock[a.accId] || 0;
+      items.push({ name: acc?.name || a.accId, needed, have, ok: have >= needed, unit: acc?.unit || "pcs" });
+    });
+    return items;
+  })() : [];
+
+  const reports = [
+    { id: "production", label: "🏭 ใบผลิตสินค้า" },
+    { id: "bom", label: "📦 ใบสั่งวัตถุดิบ" },
+    { id: "stock", label: "🏬 รายงานสต๊อก" },
+    { id: "cost", label: "💰 รายงานต้นทุน" },
+    { id: "quotation", label: "📄 ใบเสนอราคา" },
+  ];
+
+  return (
+    <div>
+      <SectionHead title={t("reportTitle")} sub={t("reportSub")} />
+      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ flex: "0 0 200px" }}>
+          <Field label="Order">
+            <select style={s.select} value={selOrder} onChange={e => setSelOrder(e.target.value)}>
+              {data.orders.map(o => <option key={o.id} value={o.id}>{o.id} – {o.customer}</option>)}
+            </select>
+          </Field>
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "flex-end", flexWrap: "wrap" }}>
+          {reports.map(r => (
+            <button key={r.id} onClick={() => setReport(r.id)} style={{ ...s.btnGhost, ...(report === r.id ? { background: C.accent + "20", color: C.accent, borderColor: C.accent + "60" } : {}) }}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {ord && (
+        <Card>
+          {/* Production Order */}
+          {report === "production" && (
+            <div>
+              <div style={{ textAlign: "center", marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.accent }}>ใบสั่งผลิต (Production Order)</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>เลขที่: {ord.id} | วันที่: {ord.date}</div>
+              </div>
+              {[["ลูกค้า", ord.customer], ["รูปแบบ (Pattern)", pat?.name], ["จำนวนผลิต", `${ord.qty?.toLocaleString()} ตัว`], ["วัตถุดิบหลัก", `${fab?.name} — ${pat?.fabricPerUnit} ${fab?.unit || "m"}/ตัว`], ["Embellishment", pt?.name || "-"], ["ค่าแรงรวม/ตัว", `฿${fmt((pat?.laborCut || 0) + (pat?.laborSew || 0) + (pat?.laborQC || 0))}`], ["Status", ord.status]].map(([k, v]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 13, borderBottom: `1px solid #060b16` }}>
+                  <span style={{ color: C.muted }}>{k}</span><span style={{ color: C.text, fontWeight: 600 }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* BOM Report */}
+          {report === "bom" && (
+            <div>
+              <div style={{ textAlign: "center", marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.accent }}>ใบสั่งวัตถุดิบ (BOM)</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{ord.id} | {ord.customer} | {ord.qty?.toLocaleString()} ตัว</div>
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>{["รายการ", "ต้องการ", "มีในสต๊อก", "Status / PO"].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {stockItems.map((item, i) => (
+                    <tr key={i}><td style={s.td}>{item.name}</td><td style={{ ...s.td, color: C.accent }}>{item.needed} {item.unit}</td><td style={{ ...s.td, color: item.ok ? C.ok : C.err }}>{item.have} {item.unit}</td><td style={s.td}>{item.ok ? <Tag text="จองสต๊อก" color={C.ok} /> : <Tag text="ต้องสั่งซื้อ" color={C.err} />}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Stock Report */}
+          {report === "stock" && (
+            <div>
+              <div style={{ textAlign: "center", marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.accent }}>รายงานสต๊อก</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>ณ วันที่ {new Date().toLocaleDateString("th-TH")}</div>
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>{["รายการ", "ประเภท", "Qty", "หน่วย", "ราคา/unit", "มูลค่า"].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {[...data.fabrics.map(f => ({ ...f, t: "Fabric" })), ...data.accessories.map(a => ({ ...a, t: "Trim" }))].map(item => {
+                    const qty = data.stock[item.id] || 0;
+                    return <tr key={item.id}><td style={s.td}>{item.name}</td><td style={s.td}><Tag text={item.t} color={item.t === "Fabric" ? C.accent : C.accent2} /></td><td style={{ ...s.td, color: qty < 100 ? C.err : C.ok, fontWeight: 700 }}>{qty.toLocaleString()}</td><td style={s.td}>{item.unit}</td><td style={s.td}>฿{fmt(item.costPerUnit)}</td><td style={{ ...s.td, color: C.accent }}>฿{fmt(qty * item.costPerUnit)}</td></tr>;
+                  })}
+                </tbody>
+              </table>
+              <div style={{ marginTop: 10, padding: "8px 12px", background: "#060b16", borderRadius: 6, display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 12, color: C.muted }}>มูลค่าสต๊อกรวม</span>
+                <span style={{ fontWeight: 700, color: C.accent }}>฿{fmt([...data.fabrics, ...data.accessories].reduce((sum, i) => sum + (data.stock[i.id] || 0) * i.costPerUnit, 0))}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Cost Report */}
+          {report === "cost" && cost && (
+            <div>
+              <div style={{ textAlign: "center", marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.accent }}>รายงานต้นทุน</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{ord.id} | {ord.customer} | {ord.qty?.toLocaleString()} ตัว</div>
+              </div>
+              {[["Fabric Cost", cost.fabricCost, cost.fabricCost * ord.qty], ["Trim Cost", cost.trimCost, cost.trimCost * ord.qty], ["Labor Cost", cost.laborCost, cost.laborCost * ord.qty], ...(cost.printCost > 0 ? [[pt?.name || "Print", cost.printCost, cost.printCost * ord.qty]] : []), [`Overhead (${data.costRates.overheadRate}%)`, cost.overhead, cost.overhead * ord.qty]].map(([k, perUnit, total]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", fontSize: 13, borderBottom: `1px solid #060b16` }}>
+                  <span style={{ color: C.sub, flex: 2 }}>{k}</span>
+                  <span style={{ color: C.text, flex: 1, textAlign: "right" }}>฿{fmt(perUnit)}/ตัว</span>
+                  <span style={{ color: C.accent, flex: 1, textAlign: "right", fontWeight: 600 }}>฿{fmt(total)}</span>
+                </div>
+              ))}
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0 4px", fontWeight: 700, fontSize: 16, marginTop: 4 }}>
+                <span style={{ color: C.text }}>รวมต้นทุนทั้งหมด</span>
+                <span style={{ color: C.accent }}>฿{fmt(cost.totalCost)}</span>
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, textAlign: "right" }}>ต้นทุน/ตัว: ฿{fmt(cost.totalPerUnit)}</div>
+            </div>
+          )}
+
+          {/* Quotation */}
+          {report === "quotation" && cost && (
+            <div>
+              <div style={{ textAlign: "center", marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.accent }}>ใบเสนอราคา (Quotation)</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>QT-{ord.id} | วันที่: {new Date().toLocaleDateString("th-TH")}</div>
+              </div>
+              {[["ลูกค้า", ord.customer], ["รายการ", `${pat?.name}${pt && pt.name !== "None" ? " + " + pt.name : ""}`], ["จำนวน", `${ord.qty?.toLocaleString()} ตัว`], ["ต้นทุน/ตัว", `฿${fmt(cost.totalPerUnit)}`], ["ราคาขาย/ตัว (Margin 30%)", `฿${fmt(finalSell)}`], ["มูลค่ารวม", `฿${fmt(finalSell * ord.qty)}`]].map(([k, v]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 13, borderBottom: `1px solid #060b16` }}>
+                  <span style={{ color: C.muted }}>{k}</span><span style={{ color: C.text, fontWeight: 600 }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ marginTop: 16, padding: "14px 16px", background: profit >= 0 ? C.ok + "12" : C.err + "12", border: `1px solid ${profit >= 0 ? C.ok : C.err}40`, borderRadius: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontWeight: 700, color: C.text }}>กำไรสุทธิ</span>
+                  <span style={{ fontWeight: 700, fontSize: 20, color: profit >= 0 ? C.ok : C.err }}>฿{fmt(profit)}</span>
+                </div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Margin 30% | ฿{fmt(finalSell - cost.totalPerUnit)}/ตัว</div>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRIMER ITEM MASTER DATA (from Item_master_Primer.xlsm)
+// ═══════════════════════════════════════════════════════════════
+
+const PRIMER_ITEMS_INIT = [{"code":"A001","ptNumber":"001","fabricType":"สแปนเด็กซ์","group":"41211","name":"เสื้อแขนสั้น ช.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A001M","ptNumber":"001","fabricType":"สแปนเด็กซ์","group":"41111","name":"เสื้อแขนสั้น ช.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A002","ptNumber":"001","fabricType":"สแปนเด็กซ์","group":"41211","name":"เสื้อแขนสั้น ช.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A002M","ptNumber":"001","fabricType":"สแปนเด็กซ์","group":"41111","name":"เสื้อแขนสั้น ช.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A003","ptNumber":"001","fabricType":"สแปนเด็กซ์","group":"41211","name":"เสื้อแขนสั้น ช.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A003M","ptNumber":"001","fabricType":"สแปนเด็กซ์","group":"41111","name":"เสื้อแขนสั้น ช.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A004","ptNumber":"001","fabricType":"สแปนเด็กซ์","group":"41211","name":"เสื้อแขนสั้น ช.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A004M","ptNumber":"001","fabricType":"สแปนเด็กซ์","group":"41111","name":"เสื้อแขนสั้น ช.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A005","ptNumber":"001","fabricType":"สแปนเด็กซ์","group":"41211","name":"เสื้อแขนสั้น ช.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A005M","ptNumber":"001","fabricType":"สแปนเด็กซ์","group":"41111","name":"เสื้อแขนสั้น ช.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A011","ptNumber":"011","fabricType":"สแปนเด็กซ์","group":"41212","name":"เสื้อแขนสั้น ญ.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A011M","ptNumber":"011","fabricType":"สแปนเด็กซ์","group":"41112","name":"เสื้อแขนสั้น ญ.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A012","ptNumber":"011","fabricType":"สแปนเด็กซ์","group":"41212","name":"เสื้อแขนสั้น ญ.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A012M","ptNumber":"011","fabricType":"สแปนเด็กซ์","group":"41112","name":"เสื้อแขนสั้น ญ.","cost":160,"sellPrice":400,"factoryPrice":200},{"code":"A013","ptNumber":"015","fabricType":"สแปนเด็กซ์","group":"41221","name":"เสื้อแขนยาว ช.","cost":180,"sellPrice":450,"factoryPrice":225},{"code":"A013M","ptNumber":"015","fabricType":"สแปนเด็กซ์","group":"41121","name":"เสื้อแขนยาว ช.","cost":180,"sellPrice":450,"factoryPrice":225},{"code":"A014","ptNumber":"015","fabricType":"สแปนเด็กซ์","group":"41221","name":"เสื้อแขนยาว ช.","cost":180,"sellPrice":450,"factoryPrice":225},{"code":"A019","ptNumber":"016","fabricType":"ไมโครฟันหนู","group":"41221","name":"เสื้อแขนยาว ช.","cost":156,"sellPrice":390,"factoryPrice":195},{"code":"A019M","ptNumber":"016","fabricType":"ไมโครฟันหนู","group":"41121","name":"เสื้อแขนยาว ช.","cost":156,"sellPrice":390,"factoryPrice":195},{"code":"A026","ptNumber":"032","fabricType":"สแปนเด็กซ์","group":"41211","name":"เสื้อแขนสั้น ช.","cost":116,"sellPrice":290,"factoryPrice":145},{"code":"A026M","ptNumber":"032","fabricType":"สแปนเด็กซ์","group":"41111","name":"เสื้อแขนสั้น ช.","cost":116,"sellPrice":290,"factoryPrice":145},{"code":"A034","ptNumber":"020","fabricType":"สแปนเด็กซ์","group":"41261","name":"เสื้อรัดกล้ามยาว ช.","cost":180,"sellPrice":450,"factoryPrice":225},{"code":"A034M","ptNumber":"020","fabricType":"สแปนเด็กซ์","group":"41161","name":"เสื้อรัดกล้ามยาว ช.","cost":180,"sellPrice":450,"factoryPrice":225},{"code":"A063","ptNumber":"003","fabricType":"สแปนเด็กซ์","group":"41212","name":"เสื้อแขนสั้น ญ.","cost":116,"sellPrice":290,"factoryPrice":145},{"code":"A063M","ptNumber":"003","fabricType":"สแปนเด็กซ์","group":"41112","name":"เสื้อแขนสั้น ญ.","cost":116,"sellPrice":290,"factoryPrice":145}];
+
+const PRIMER_FABRICS_INIT = ["Dry Tech","Dry Tech ","Dry Tech 505 Twill","Harmeet","RIB CVC","STR597","กราฟีน","คละ","คอตตอนอินเตอร์ล็อค","ค็อตตอน","ค็อตตอน ซูเปอร์ซอฟ","ค็อตตอนซูเปอร์ซอฟ","ค็อตตอนออร์แกนิค","ค็อตตอนเกล็ดปลา","ค็อตตอนเกล็ดปลา RE","ค็อตตอนเซมิ","ค็อตตอนสแปนเด็ก","ทีซีค้อม","ทีซีคอมทวิว","ทีซีจุติ","ทีซีสเปนเด็ก","ท็อปดาย","ท็อปดายฟันหนู","ท็อปดายสแปนเด็กซ์","ไทยแทฟ","ไนลอนสเปนเด็กซ์","ผ้า EA","ผ้า FLTP","ผ้า M110","ผ้า P0651Re","ผ้า PH-B71G","ผ้า PITFRE","ผ้า RIB ","ผ้า RKHT","ผ้า TC","ผ้า TR","ผ้า ZC","ผ้าPITFRE","ผ้าเกล็ดปลา","ผ้าเกล็ดปลา TD","ผ้าโพลีกันน้ำ","ผ้าโพลีตาข่าย","ผ้าโพลีสแปนเด็ซ์","ผ้าโพลีสแปนเด็ซ์ (ว่ายน้ำ)","ผ้าโพลีเบบี้ เฟรนทอรี่ ไลท์","ผ้าไมโครพีท","ผ้าไหมอิตาลี","ผ้าร่ม","ผ้าร่มกันน้ำ","ผ้าร่มกันน้ำ PITF","ผ้าร่มกันน้ำ ZA","ผ้าเรยอนสแปนเด็กซ์","ผ้าลีวาย","ผ้าวอร์ม","ผ้าวอร์มเกล็ดปลา","ผ้าวอร์มหนังไก่","ผ้าวูเวน SPD","ผ้าสปันบอนด์","ผ้าสำลี","ผ้าฮงเส็ง","ผ้าอาดิดาส","โปโล 2017","โปโล Super Micro","โปโล TK จุติ","ไมโคร50A","ไมโคร50B","ไมโครขัดทราย","ไมโครแอปเปิ้ล","ไมโครเม็ดข้าวโพด","ไมโครเม็ดข้าวสารรีไซเคิล","ไมโครยึด","ไมโครเรียบ","ไมโครเรียบรีไซเคิล","ไมโครสะท้อนน้ำ","ไมโครฟันหนู","ยีนส์","ลาครอส","เรียบ/ฟันหนู/ข้าวโพด","สแปนเด็กซ์","สแปนเด็กซ์ ตาข่าย","สเปนเด็กขัดทราย"];
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE: ITEM MASTER (PRIMER)
+// ═══════════════════════════════════════════════════════════════
+
+function ItemMasterModule({ itemMaster, setItemMaster }) {
+  const [search, setSearch] = useState("");
+  const [filterFabric, setFilterFabric] = useState("");
+  const [filterGroup, setFilterGroup] = useState("");
+  const [uploadStatus, setUploadStatus] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({});
+
+  const allFabrics = [...new Set(itemMaster.map(i => i.fabricType))].sort();
+  const allGroups = [...new Set(itemMaster.map(i => i.group))].sort();
+
+  const filtered = itemMaster.filter(item => {
+    const q = search.toLowerCase();
+    const matchSearch = !q || item.code.toLowerCase().includes(q) || item.name.toLowerCase().includes(q) || item.fabricType.toLowerCase().includes(q) || item.ptNumber.includes(q);
+    const matchFabric = !filterFabric || item.fabricType === filterFabric;
+    const matchGroup = !filterGroup || item.group === filterGroup;
+    return matchSearch && matchFabric && matchGroup;
+  });
+
+  const handleExcelUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadStatus(null);
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const { read, utils } = await import("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js").then(() => window.XLSX || Promise.reject("XLSX not found"));
+        const wb = read(evt.target.result, { type: "array" });
+        const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes("item") || n.toLowerCase().includes("master")) || wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const rows = utils.sheet_to_json(ws, { defval: "" });
+
+        const parsed = [];
+        rows.forEach(row => {
+          const code = String(row["โค้ด"] || row["code"] || row["Code"] || "").trim();
+          const rCode = String(row["รหัสสินค้า"] || "").trim();
+          if (!rCode.match(/^\d/) && !code) return;
+          const item = {
+            code: code || rCode,
+            ptNumber: String(row["P/T Number"] || row["PT"] || "").trim(),
+            fabricType: String(row["ชนิดผ้า"] || row["fabric"] || "").trim(),
+            group: String(row["กลุ่ม"] || row["group"] || "").trim(),
+            name: String(row["ชื่อสินค้า"] || row["ชื่อ"] || row["name"] || "").trim(),
+            cost: parseFloat(row["Cost (THB)"] || row["cost"] || 0) || 0,
+            sellPrice: parseFloat(row["ราคาขาย (-VAT)"] || row["sellPrice"] || 0) || 0,
+            factoryPrice: parseFloat(row["ราคาโรงงาน"] || row["factoryPrice"] || 0) || 0,
+          };
+          if (item.code || item.name) parsed.push(item);
+        });
+
+        if (parsed.length > 0) {
+          setItemMaster(parsed);
+          setUploadStatus({ ok: true, msg: `✅ นำเข้าสำเร็จ ${parsed.length.toLocaleString()} รายการ จาก Sheet "${sheetName}"` });
+        } else {
+          setUploadStatus({ ok: false, msg: "⚠️ ไม่พบข้อมูลที่อ่านได้ — ตรวจสอบชื่อคอลัมน์ในไฟล์" });
+        }
+      } catch (err) {
+        // Fallback: SheetJS via script tag
+        if (!window.XLSX) {
+          const script = document.createElement("script");
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+          script.onload = () => processXLSX(evt.target.result, file.name);
+          script.onerror = () => setUploadStatus({ ok: false, msg: "❌ โหลด Library ไม่สำเร็จ — ลองใหม่อีกครั้ง" });
+          document.head.appendChild(script);
+        } else {
+          processXLSX(evt.target.result, file.name);
+        }
+      }
+      setUploading(false);
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const processXLSX = (arrayBuffer, fileName) => {
+    try {
+      const wb = window.XLSX.read(arrayBuffer, { type: "array" });
+      const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes("item") || n.toLowerCase().includes("master")) || wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = window.XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+      const parsed = [];
+      rows.forEach(row => {
+        const code = String(row["โค้ด"] || row["code"] || row["Code"] || "").trim();
+        const rCode = String(row["รหัสสินค้า"] || "").trim();
+        if (!rCode.match(/^\d/) && !code) return;
+        const item = {
+          code: code || rCode,
+          ptNumber: String(row["P/T Number"] || row["PT"] || "").trim(),
+          fabricType: String(row["ชนิดผ้า"] || row["fabric"] || "").trim(),
+          group: String(row["กลุ่ม"] || row["group"] || "").trim(),
+          name: String(row["ชื่อสินค้า"] || row["ชื่อ"] || row["name"] || "").trim(),
+          cost: parseFloat(row["Cost (THB)"] || row["cost"] || 0) || 0,
+          sellPrice: parseFloat(row["ราคาขาย (-VAT)"] || row["sellPrice"] || 0) || 0,
+          factoryPrice: parseFloat(row["ราคาโรงงาน"] || row["factoryPrice"] || 0) || 0,
+        };
+        if (item.code || item.name) parsed.push(item);
+      });
+
+      if (parsed.length > 0) {
+        setItemMaster(parsed);
+        setUploadStatus({ ok: true, msg: `✅ นำเข้าสำเร็จ ${parsed.length.toLocaleString()} รายการ จาก Sheet "${sheetName}"` });
+      } else {
+        setUploadStatus({ ok: false, msg: "⚠️ ไม่พบข้อมูลที่อ่านได้" });
+      }
+    } catch (err) {
+      setUploadStatus({ ok: false, msg: `❌ Error: ${err.message}` });
+    }
+    setUploading(false);
+  };
+
+  const saveItem = () => {
+    const id = form.code;
+    if (!id) return;
+    setItemMaster(prev => [...prev.filter(x => x.code !== id), { ...form, cost: parseFloat(form.cost) || 0, sellPrice: parseFloat(form.sellPrice) || 0, factoryPrice: parseFloat(form.factoryPrice) || 0 }]);
+    setModal(false);
+  };
+
+  const delItem = (code) => setItemMaster(prev => prev.filter(x => x.code !== code));
+
+  const groupLabel = { "41111": "เสื้อชาย-ใหญ่", "41211": "เสื้อชาย-เล็ก", "41112": "เสื้อหญิง-ใหญ่", "41212": "เสื้อหญิง-เล็ก", "41121": "เสื้อแขนยาวชาย-ใหญ่", "41221": "เสื้อแขนยาวชาย-เล็ก", "41161": "รัดกล้าม-ใหญ่", "41261": "รัดกล้าม-เล็ก", "41411": "Export" };
+
+  return (
+    <div>
+      <SectionHead title="📁 ITEM MASTER — PRIMER" sub={`ฐานข้อมูลสินค้า ${itemMaster.length.toLocaleString()} รายการ`}
+        action={<button style={s.btn()} onClick={() => { setForm({}); setModal(true); }}>+ เพิ่ม SKU</button>} />
+
+      {/* Excel Upload Panel */}
+      <Card style={{ marginBottom: 16, border: `1px solid ${C.accent}40`, background: "#0f1a2e" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 28 }}>📊</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, color: C.accent, fontSize: 13 }}>อัปโหลด Excel — Item Master / Stock Update</div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>รองรับ .xlsx .xlsm — ชื่อคอลัมน์: โค้ด, P/T Number, ชนิดผ้า, กลุ่ม, ชื่อสินค้า, Cost (THB), ราคาโรงงาน, ราคาขาย (-VAT)</div>
+          </div>
+          <label style={{ ...s.btn(C.accent2, true), cursor: "pointer", padding: "10px 20px" }}>
+            {uploading ? "⏳ กำลังอ่าน..." : "📂 เลือกไฟล์ Excel"}
+            <input type="file" accept=".xlsx,.xlsm,.xls,.csv" style={{ display: "none" }} onChange={handleExcelUpload} disabled={uploading} />
+          </label>
+        </div>
+        {uploadStatus && (
+          <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 6, background: uploadStatus.ok ? C.ok + "18" : C.err + "18", border: `1px solid ${uploadStatus.ok ? C.ok : C.err}50`, fontSize: 12, color: uploadStatus.ok ? C.ok : C.err, fontWeight: 600 }}>
+            {uploadStatus.msg}
+          </div>
+        )}
+        <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 10, color: C.muted, padding: "3px 8px", border: `1px solid ${C.border}`, borderRadius: 4 }}>📋 Item_master_Primer.xlsm — โหลดแล้ว</div>
+          <div style={{ fontSize: 10, color: C.muted, padding: "3px 8px", border: `1px solid ${C.border}`, borderRadius: 4 }}>รวม {itemMaster.length.toLocaleString()} SKU | {allFabrics.length} ชนิดผ้า</div>
+        </div>
+      </Card>
+
+      {/* Filters */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        <input style={{ ...s.input, flex: 2, minWidth: 200 }} value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 ค้นหา รหัส / ชื่อสินค้า / ชนิดผ้า / P/T..." />
+        <select style={{ ...s.select, flex: 1, minWidth: 150 }} value={filterFabric} onChange={e => setFilterFabric(e.target.value)}>
+          <option value="">— ชนิดผ้าทั้งหมด —</option>
+          {allFabrics.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
+        <select style={{ ...s.select, flex: 1, minWidth: 120 }} value={filterGroup} onChange={e => setFilterGroup(e.target.value)}>
+          <option value="">— กลุ่มทั้งหมด —</option>
+          {allGroups.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+        {(search || filterFabric || filterGroup) && (
+          <button style={s.btnGhost} onClick={() => { setSearch(""); setFilterFabric(""); setFilterGroup(""); }}>✕ ล้าง</button>
+        )}
+      </div>
+
+      <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>แสดง {filtered.length.toLocaleString()} / {itemMaster.length.toLocaleString()} รายการ</div>
+
+      <Card>
+        <div style={{ overflowX: "auto", maxHeight: 480, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
+              <tr>{["รหัส (Code)", "P/T No.", "ชนิดผ้า", "กลุ่ม", "ชื่อสินค้า", "ต้นทุน", "ราคาโรงงาน", "ราคาขาย", ""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {filtered.slice(0, 200).map((item, i) => (
+                <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : "#060b1688" }}>
+                  <td style={{ ...s.td, color: C.accent, fontWeight: 700 }}>{item.code}</td>
+                  <td style={{ ...s.td, color: C.muted }}>{item.ptNumber}</td>
+                  <td style={s.td}><Tag text={item.fabricType} color={
+                    item.fabricType.includes("สแปน") ? "#f59e0b" :
+                    item.fabricType.includes("ไมโคร") ? "#3b82f6" :
+                    item.fabricType.includes("โปโล") ? "#8b5cf6" :
+                    item.fabricType.includes("ท็อปดาย") ? "#10b981" : C.sub
+                  } /></td>
+                  <td style={{ ...s.td, color: C.muted, fontSize: 11 }}>{groupLabel[item.group] || item.group}</td>
+                  <td style={s.td}>{item.name}</td>
+                  <td style={{ ...s.td, color: C.text }}>฿{fmt(item.cost)}</td>
+                  <td style={{ ...s.td, color: C.sub }}>฿{fmt(item.factoryPrice)}</td>
+                  <td style={{ ...s.td, color: C.ok, fontWeight: 600 }}>฿{fmt(item.sellPrice)}</td>
+                  <td style={s.td}>
+                    <button onClick={() => { setForm({ ...item }); setModal(true); }} style={{ ...s.btnGhost, padding: "3px 8px", marginRight: 4 }}>แก้</button>
+                    <button onClick={() => delItem(item.code)} style={{ ...s.btnGhost, padding: "3px 8px", color: C.err, borderColor: C.err + "50" }}>ลบ</button>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length > 200 && (
+                <tr><td colSpan={9} style={{ ...s.td, textAlign: "center", color: C.muted, padding: 16 }}>...แสดง 200 รายการแรก — กรุณาใช้ Filter เพื่อค้นหา</td></tr>
+              )}
+              {filtered.length === 0 && (
+                <tr><td colSpan={9} style={{ ...s.td, textAlign: "center", color: C.muted, padding: 32 }}>ไม่พบรายการที่ตรงกับการค้นหา</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Summary */}
+        <div style={{ marginTop: 10, display: "flex", gap: 16, padding: "8px 12px", background: "#060b16", borderRadius: 6, flexWrap: "wrap" }}>
+          {[
+            ["SKU ทั้งหมด", itemMaster.length.toLocaleString()],
+            ["ชนิดผ้า", allFabrics.length],
+            ["ต้นทุนเฉลี่ย/ตัว", "฿" + fmt(itemMaster.reduce((s, i) => s + i.cost, 0) / Math.max(itemMaster.length, 1))],
+            ["ราคาขายเฉลี่ย", "฿" + fmt(itemMaster.reduce((s, i) => s + i.sellPrice, 0) / Math.max(itemMaster.length, 1))],
+          ].map(([k, v]) => (
+            <div key={k}>
+              <span style={{ fontSize: 10, color: C.muted }}>{k}: </span>
+              <span style={{ fontWeight: 700, color: C.accent }}>{v}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {modal && (
+        <Modal title={form.code ? `แก้ไข ${form.code}` : "เพิ่ม SKU ใหม่"} onClose={() => setModal(false)}>
+          <Row2>
+            <Field label="รหัสสินค้า (Code)" half><input style={s.input} value={form.code || ""} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} placeholder="เช่น A001M" /></Field>
+            <Field label="P/T Number" half><input style={s.input} value={form.ptNumber || ""} onChange={e => setForm(f => ({ ...f, ptNumber: e.target.value }))} placeholder="เช่น 001" /></Field>
+            <Field label="ชนิดผ้า"><select style={s.select} value={form.fabricType || ""} onChange={e => setForm(f => ({ ...f, fabricType: e.target.value }))}>
+              <option value="">— เลือกชนิดผ้า —</option>
+              {PRIMER_FABRICS_INIT.map(f => <option key={f} value={f}>{f}</option>)}
+            </select></Field>
+            <Field label="กลุ่ม (Group)" half><input style={s.input} value={form.group || ""} onChange={e => setForm(f => ({ ...f, group: e.target.value }))} placeholder="เช่น 41111" /></Field>
+            <Field label="ชื่อสินค้า"><input style={s.input} value={form.name || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Field>
+            <Field label="Cost (THB)" half><input style={s.input} type="number" value={form.cost || ""} onChange={e => setForm(f => ({ ...f, cost: e.target.value }))} /></Field>
+            <Field label="ราคาโรงงาน" half><input style={s.input} type="number" value={form.factoryPrice || ""} onChange={e => setForm(f => ({ ...f, factoryPrice: e.target.value }))} /></Field>
+            <Field label="ราคาขาย (-VAT)" half><input style={s.input} type="number" value={form.sellPrice || ""} onChange={e => setForm(f => ({ ...f, sellPrice: e.target.value }))} /></Field>
+          </Row2>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button style={s.btn()} onClick={saveItem}>บันทึก</button>
+            <button style={s.btnGhost} onClick={() => setModal(false)}>ยกเลิก</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ROOT APP
+// ═══════════════════════════════════════════════════════════════
+
+const MODULES = [
+  { id: "items", label: "📁 Item Master", icon: "📁" },
+  { id: "master", label: "⚙️ Master Data", icon: "⚙️" },
+  { id: "order", label: "📋 Orders", icon: "📋" },
+  { id: "bom", label: "📦 BOM", icon: "📦" },
+  { id: "inventory", label: "🏬 Inventory", icon: "🏬" },
+  { id: "costing", label: "💹 Costing", icon: "💹" },
+  { id: "reports", label: "📄 Reports", icon: "📄" },
+];
+
+export default function GarmentERP() {
+  const [activeModule, setActiveModule] = useState("items");
+  const [activeOrderId, setActiveOrderId] = useState(null);
+  const [itemMaster, setItemMaster] = useState(PRIMER_ITEMS_INIT);
+  const [lang, setLang] = useState("EN");
+  _lang = lang;
+
+  const [data, setData] = useState({
+    fabrics: INIT_FABRICS,
+    accessories: INIT_ACCESSORIES,
+    patterns: INIT_PATTERNS,
+    printTypes: INIT_PRINT_TYPES,
+    suppliers: INIT_SUPPLIERS,
+    costRates: INIT_COST_RATES,
+    orders: INIT_ORDERS,
+    stock: { ...INIT_STOCK },
+    bills: [],
+  });
+
+  const handleSetActiveOrder = useCallback((id) => {
+    setActiveOrderId(id);
+    setActiveModule("bom");
+  }, []);
+
+  const totalOrders = data.orders.length;
+  const confirmedOrders = data.orders.filter(o => o.status === "confirmed" || o.status === "production").length;
+  const totalStockValue = [...data.fabrics, ...data.accessories].reduce((sum, i) => sum + (data.stock[i.id] || 0) * i.costPerUnit, 0);
+  const lowStock = [...data.fabrics, ...data.accessories].filter(i => (data.stock[i.id] || 0) < 100).length;
+
+  return (
+    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'JetBrains Mono', 'Courier New', monospace", color: C.text }}>
+      {/* Top Bar */}
+      <div style={{ background: "#0a1020", borderBottom: `1px solid ${C.border}`, padding: "0 16px", display: "flex", alignItems: "center", gap: 0, overflowX: "auto" }}>
+        <div style={{ padding: "14px 0", marginRight: 24, display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <span style={{ fontSize: 22 }}>🧵</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.accent, letterSpacing: 2, textTransform: "uppercase", whiteSpace: "nowrap" }}>{t("appName")}</div>
+            <div style={{ fontSize: 9, color: C.muted, letterSpacing: 1 }}>{t("appSub")}</div>
+          </div>
+        </div>
+        {[
+          { id: "items", label: t("navItems") },
+          { id: "master", label: t("navMaster") },
+          { id: "order", label: t("navOrder") },
+          { id: "bom", label: t("navBom") },
+          { id: "inventory", label: t("navInventory") },
+          { id: "costing", label: t("navCosting") },
+          { id: "reports", label: t("navReports") },
+        ].map(m => (
+          <button key={m.id} onClick={() => setActiveModule(m.id)} style={{
+            padding: "16px 12px", background: "none", border: "none", cursor: "pointer",
+            fontFamily: "inherit", fontSize: 11, fontWeight: activeModule === m.id ? 700 : 400,
+            color: activeModule === m.id ? C.accent : C.muted,
+            borderBottom: activeModule === m.id ? `2px solid ${C.accent}` : "2px solid transparent",
+            whiteSpace: "nowrap", flexShrink: 0,
+          }}>
+            {m.label}
+          </button>
+        ))}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 12, fontSize: 10, flexShrink: 0, paddingLeft: 16, alignItems: "center" }}>
+          <span style={{ color: C.muted }}>{t("statSku")}: <strong style={{ color: C.accent }}>{itemMaster.length}</strong></span>
+          <span style={{ color: C.muted }}>{t("statOrders")}: <strong style={{ color: C.accent }}>{totalOrders}</strong></span>
+          <span style={{ color: C.muted }}>⚠️ {t("statStock")}: <strong style={{ color: lowStock > 0 ? C.err : C.ok }}>{lowStock}</strong></span>
+          <span style={{ color: C.muted }}>{t("statStockVal")}: <strong style={{ color: C.accent }}>฿{(totalStockValue / 1000).toFixed(0)}K</strong></span>
+          <LangToggle lang={lang} setLang={setLang} />
+        </div>
+      </div>
+
+      {/* Main */}
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 20px" }}>
+        {activeModule === "items" && <ItemMasterModule itemMaster={itemMaster} setItemMaster={setItemMaster} />}
+        {activeModule === "master" && <MasterModule data={data} setData={setData} />}
+        {activeModule === "order" && <OrderModule data={data} setData={setData} setActiveOrder={handleSetActiveOrder} />}
+        {activeModule === "bom" && <BOMModule data={data} setData={setData} activeOrderId={activeOrderId} setActiveModule={setActiveModule} />}
+        {activeModule === "inventory" && <InventoryModule data={data} setData={setData} />}
+        {activeModule === "costing" && <CostingModule data={data} />}
+        {activeModule === "reports" && <ReportModule data={data} />}
+      </div>
+    </div>
+  );
+}
