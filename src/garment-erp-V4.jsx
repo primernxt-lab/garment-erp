@@ -1461,80 +1461,192 @@ function InventoryModule() {
 }
 
 // ════════════════════════════════════════════════════════════════
-// § 13  MODULE: COSTING (unchanged from V3)
+// § 13  MODULE: COSTING (updated)
 // ════════════════════════════════════════════════════════════════
+
+function BarChart({ rows }) {
+  return (
+    <div>
+      {rows.map((row, i) => {
+        const pct = row.max > 0 ? (row.value / row.max) * 100 : 0;
+        return (
+          <div key={i} style={{ marginBottom:14 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+              <span style={{ fontSize:12, color:C.sub }}>{row.label}</span>
+              <span style={{ fontSize:13, fontWeight:700, color:row.color }}>
+                ฿{fmt(row.value)} <span style={{ fontSize:10, color:C.muted }}>({pct.toFixed(1)}%)</span>
+              </span>
+            </div>
+            <div style={{ background:C.border, borderRadius:6, height:12, overflow:"hidden" }}>
+              <div style={{ width:pct+"%", height:"100%", background:row.color, borderRadius:6, transition:"width 0.4s" }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CostingModule() {
   const { data } = useData();
   const [activeTab, setActiveTab] = useState("single");
-  const [selOrder,  setSelOrder]  = useState(data.orders[0]?.id||"");
+  const [selOrder,  setSelOrder]  = useState(data.orders[0]?.id || "");
   const [mode,      setMode]      = useState("margin");
   const [margin,    setMargin]    = useState(30);
   const [sellPrice, setSellPrice] = useState("");
-  const ord          = data.orders.find(o => o.id===selOrder);
+
+  const ord          = data.orders.find(o => o.id === selOrder);
   const cost         = ord ? calcCost(ord, data.patterns, data.fabrics, data.accessories, data.printTypes, data.costRates) : null;
-  const pat          = ord && data.patterns.find(p => p.id===ord.patternId);
+  const pat          = ord && data.patterns.find(p => p.id === ord.patternId);
   const costRows     = buildCostRows(cost, pat, ord, data.fabrics, data.printTypes, data.costRates);
-  const finalSell    = mode==="margin" ? (cost?cost.totalPerUnit*(1+margin/100):0) : (parseFloat(sellPrice)||(cost?.totalPerUnit||0));
-  const profitPerUnit = cost ? finalSell-cost.totalPerUnit : 0;
-  const profitTotal  = profitPerUnit*(ord?.qty||0);
-  const marginActual = finalSell>0?(profitPerUnit/finalSell)*100:0;
-  const allCosts     = useMemo(() => data.orders.map(o => { const c=calcCost(o,data.patterns,data.fabrics,data.accessories,data.printTypes,data.costRates); if(!c)return null; return{...o,cost:c,sell30:c.totalPerUnit*1.3,profit30:c.totalPerUnit*0.3*o.qty}; }).filter(Boolean), [data]);
-  return <div>
-    <SectionHead title="💹 COSTING & PRICING" sub="คำนวณต้นทุน · ตั้งราคาขาย · เปรียบทุก Order"/>
-    <TabBar tabs={[["single","💹 คำนวณ"],["compare","📊 เปรียบ"],["breakdown","🔬 วิเคราะห์"]]} active={activeTab} setActive={setActiveTab}/>
-    {activeTab==="single" && <div>
-      <Card style={{ marginBottom:14 }}><Field label="เลือก Order"><select style={s.select} value={selOrder} onChange={e=>setSelOrder(e.target.value)}>{data.orders.map(o=><option key={o.id} value={o.id}>{o.orderNo||o.id} — {o.customer} ({o.qty} ตัว)</option>)}</select></Field></Card>
-      {cost&&ord&&<div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-        <Card>
-          <div style={{ fontWeight:700, fontSize:13, color:C.text, marginBottom:12, paddingBottom:8, borderBottom:`1px solid ${C.border}` }}>ต้นทุน / ตัว</div>
-          {costRows.map(([k,v])=><div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", fontSize:12, borderBottom:`1px solid #0a1020` }}><span style={{ color:C.sub }}>{k}</span><span style={{ color:C.text }}>฿{fmt(v)}</span></div>)}
-          <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", marginTop:4 }}><span style={{ fontWeight:700, color:C.text }}>รวมต้นทุน / ตัว</span><span style={{ fontWeight:800, fontSize:18, color:C.accent }}>฿{fmt(cost.totalPerUnit)}</span></div>
-          <div style={{ display:"flex", justifyContent:"space-between", padding:"4px 0" }}><span style={{ fontSize:12, color:C.muted }}>รวม ({ord.qty?.toLocaleString()} ตัว)</span><span style={{ fontSize:14, fontWeight:700, color:C.accent }}>฿{fmt(cost.totalCost)}</span></div>
-        </Card>
-        <Card>
-          <div style={{ fontWeight:700, fontSize:13, color:C.text, marginBottom:12, paddingBottom:8, borderBottom:`1px solid ${C.border}` }}>ตั้งราคาขาย</div>
-          <div style={{ display:"flex", gap:6, marginBottom:14 }}>{[["margin","🎯 Margin %"],["manual","✏️ ราคาเอง"]].map(([m,l])=><button key={m} onClick={()=>setMode(m)} style={{ flex:1, padding:"8px", border:"none", borderRadius:6, cursor:"pointer", fontFamily:"inherit", fontSize:11, fontWeight:700, background:mode===m?C.accent:"#060b16", color:mode===m?"#000":C.muted }}>{l}</button>)}</div>
-          {mode==="margin"?<div><div style={{ fontSize:12, color:C.muted, marginBottom:6 }}>Margin: <strong style={{ color:C.accent }}>{margin}%</strong></div><input type="range" min={0} max={100} value={margin} onChange={e=>setMargin(Number(e.target.value))} style={{ width:"100%", accentColor:C.accent }}/></div>:<Field label="ราคาขาย / ตัว (฿)"><input style={s.input} type="number" value={sellPrice} onChange={e=>setSellPrice(e.target.value)}/></Field>}
-          <div style={{ marginTop:16, display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            {[["ราคาขาย/ตัว",`฿${fmt(finalSell)}`,C.accent],["กำไร/ตัว",`฿${fmt(profitPerUnit)}`,profitPerUnit>=0?C.ok:C.err],["Margin จริง",`${marginActual.toFixed(1)}%`,profitPerUnit>=0?C.ok:C.err],["กำไรรวม",`฿${fmt(profitTotal)}`,profitTotal>=0?C.ok:C.err]].map(([k,v,c])=><div key={k} style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px" }}><div style={{ fontSize:10, color:C.muted, textTransform:"uppercase" }}>{k}</div><div style={{ fontSize:16, fontWeight:700, color:c, marginTop:3 }}>{v}</div></div>)}
+  const finalSell    = mode === "margin" ? (cost ? cost.totalPerUnit * (1 + margin/100) : 0) : (parseFloat(sellPrice)||(cost?.totalPerUnit||0));
+  const profitPerUnit = cost ? finalSell - cost.totalPerUnit : 0;
+  const profitTotal  = profitPerUnit * (ord?.qty || 0);
+  const marginActual = finalSell > 0 ? (profitPerUnit / finalSell) * 100 : 0;
+
+  const allCosts = useMemo(() => data.orders.map(o => {
+    const c = calcCost(o, data.patterns, data.fabrics, data.accessories, data.printTypes, data.costRates);
+    if (!c) return null;
+    return { ...o, cost:c, sell30:c.totalPerUnit*1.3, profit30:c.totalPerUnit*0.3*o.qty };
+  }).filter(Boolean), [data]);
+
+  return (
+    <div>
+      <SectionHead title="💹 COSTING & PRICING" sub="คำนวณต้นทุน · ตั้งราคาขาย · เปรียบทุก Order · วิเคราะห์สัดส่วน" />
+      <TabBar tabs={[["single","💹 คำนวณ Order"],["compare","📊 เปรียบทุก Order"],["breakdown","🔬 วิเคราะห์"]]} active={activeTab} setActive={setActiveTab} />
+
+      {activeTab === "single" && (
+        <div>
+          <Card style={{ marginBottom:14 }}>
+            <Field label="เลือก Order เพื่อคำนวณต้นทุน">
+              <select style={s.select} value={selOrder} onChange={e => setSelOrder(e.target.value)}>
+                {data.orders.map(o => <option key={o.id} value={o.id}>{o.id} — {o.customer} ({o.qty} ตัว)</option>)}
+              </select>
+            </Field>
+          </Card>
+          {cost && ord && (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <Card>
+                <div style={{ fontWeight:700, fontSize:13, color:C.text, marginBottom:12, paddingBottom:8, borderBottom:`1px solid ${C.border}` }}>ต้นทุน / ตัว</div>
+                {costRows.map(([k, v]) => (
+                  <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", fontSize:12, borderBottom:`1px solid #0a1020` }}>
+                    <span style={{ color:C.sub }}>{k}</span>
+                    <span style={{ color:C.text }}>฿{fmt(v)}</span>
+                  </div>
+                ))}
+                <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", marginTop:4 }}>
+                  <span style={{ fontWeight:700, color:C.text }}>รวมต้นทุน / ตัว</span>
+                  <span style={{ fontWeight:800, fontSize:18, color:C.accent }}>฿{fmt(cost.totalPerUnit)}</span>
+                </div>
+                <div style={{ display:"flex", justifyContent:"space-between", padding:"4px 0" }}>
+                  <span style={{ fontSize:12, color:C.muted }}>รวม ({ord.qty?.toLocaleString()} ตัว)</span>
+                  <span style={{ fontSize:14, fontWeight:700, color:C.accent }}>฿{fmt(cost.totalCost)}</span>
+                </div>
+                {ord.targetPrice > 0 && (
+                  <div style={{ marginTop:10, padding:"8px 12px", borderRadius:6, background:ord.targetPrice>=cost.totalPerUnit?C.ok+"15":C.err+"15", border:`1px solid ${ord.targetPrice>=cost.totalPerUnit?C.ok:C.err}40` }}>
+                    <div style={{ fontSize:11, color:C.muted }}>ราคาเป้าหมาย vs ต้นทุน</div>
+                    <div style={{ fontWeight:700, color:ord.targetPrice>=cost.totalPerUnit?C.ok:C.err }}>
+                      ฿{fmt(ord.targetPrice)} {ord.targetPrice>=cost.totalPerUnit?"✓ กำไร":"✗ ขาดทุน"}
+                    </div>
+                  </div>
+                )}
+              </Card>
+              <Card>
+                <div style={{ fontWeight:700, fontSize:13, color:C.text, marginBottom:12, paddingBottom:8, borderBottom:`1px solid ${C.border}` }}>ตั้งราคาขาย</div>
+                <div style={{ display:"flex", gap:6, marginBottom:14 }}>
+                  {[["margin","🎯 Margin %"],["manual","✏️ ราคาเอง"]].map(([m,l]) => (
+                    <button key={m} onClick={() => setMode(m)} style={{ flex:1, padding:"8px", border:"none", borderRadius:6, cursor:"pointer", fontFamily:"inherit", fontSize:11, fontWeight:700, background:mode===m?C.accent:"#060b16", color:mode===m?"#000":C.muted }}>{l}</button>
+                  ))}
+                </div>
+                {mode === "margin" ? (
+                  <div>
+                    <div style={{ fontSize:12, color:C.muted, marginBottom:6 }}>Margin: <strong style={{ color:C.accent }}>{margin}%</strong></div>
+                    <input type="range" min={0} max={100} value={margin} onChange={e => setMargin(Number(e.target.value))} style={{ width:"100%", accentColor:C.accent }} />
+                  </div>
+                ) : (
+                  <Field label="ราคาขาย / ตัว (฿)">
+                    <input style={s.input} type="number" value={sellPrice} onChange={e => setSellPrice(e.target.value)} placeholder={`แนะนำ ฿${fmt(cost.totalPerUnit*1.3)}`} />
+                  </Field>
+                )}
+                <div style={{ marginTop:16, display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                  {[
+                    ["ราคาขาย/ตัว",  `฿${fmt(finalSell)}`,               C.accent],
+                    ["กำไร/ตัว",     `฿${fmt(profitPerUnit)}`,            profitPerUnit>=0?C.ok:C.err],
+                    ["Margin จริง",  `${marginActual.toFixed(1)}%`,       profitPerUnit>=0?C.ok:C.err],
+                    ["กำไรรวม",      `฿${fmt(profitTotal)}`,              profitTotal>=0?C.ok:C.err],
+                  ].map(([k,v,c]) => (
+                    <div key={k} style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px" }}>
+                      <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase" }}>{k}</div>
+                      <div style={{ fontSize:16, fontWeight:700, color:c, marginTop:3 }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          )}
+          {!cost && <div style={{ textAlign:"center", padding:48, color:C.muted }}>เลือก Order เพื่อดูต้นทุน</div>}
+        </div>
+      )}
+
+      {activeTab === "compare" && (
+        <div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:16 }}>
+            <StatBox label="Revenue รวม (30%)" value={`฿${(allCosts.reduce((s,o)=>s+o.sell30*o.qty,0)/1000).toFixed(0)}K`} color={C.ok}     icon="💰" />
+            <StatBox label="ต้นทุนรวม"         value={`฿${(allCosts.reduce((s,o)=>s+o.cost.totalCost,0)/1000).toFixed(0)}K`} color={C.err}    icon="📉" />
+            <StatBox label="กำไรรวม (30%)"     value={`฿${(allCosts.reduce((s,o)=>s+o.profit30,0)/1000).toFixed(0)}K`}       color={C.accent} icon="✨" />
           </div>
-        </Card>
-      </div>}
-    </div>}
-    {activeTab==="compare" && <div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:16 }}>
-        <StatBox label="Revenue (30%)" value={`฿${(allCosts.reduce((s,o)=>s+o.sell30*o.qty,0)/1000).toFixed(0)}K`} color={C.ok} icon="💰"/>
-        <StatBox label="ต้นทุนรวม"    value={`฿${(allCosts.reduce((s,o)=>s+o.cost.totalCost,0)/1000).toFixed(0)}K`} color={C.err} icon="📉"/>
-        <StatBox label="กำไร (30%)"   value={`฿${(allCosts.reduce((s,o)=>s+o.profit30,0)/1000).toFixed(0)}K`} color={C.accent} icon="✨"/>
-      </div>
-      <Card><div style={{ overflowX:"auto" }}><table style={{ width:"100%", borderCollapse:"collapse", minWidth:650 }}>
-        <thead><tr>{["Order","ลูกค้า","Qty","ต้นทุน/ตัว","ราคา (30%)","กำไรรวม","Status"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
-        <tbody>{allCosts.map((o,i)=><tr key={o.id} style={{ background:i%2===0?"transparent":"#060b1640" }}>
-          <td style={{ ...s.td, color:C.accent, fontWeight:700 }}>{o.orderNo||o.id}</td>
-          <td style={s.td}>{o.customer}</td>
-          <td style={{ ...s.td, color:C.sub }}>{o.qty?.toLocaleString()}</td>
-          <td style={s.td}>฿{fmt(o.cost.totalPerUnit)}</td>
-          <td style={{ ...s.td, color:C.ok }}>฿{fmt(o.sell30)}</td>
-          <td style={{ ...s.td, color:o.profit30>=0?C.ok:C.err, fontWeight:700 }}>฿{fmt(o.profit30)}</td>
-          <td style={s.td}><Tag text={o.status} color={ORDER_STATUS_COLOR[o.status]||C.muted}/></td>
-        </tr>)}</tbody>
-      </table></div></Card>
-    </div>}
-    {activeTab==="breakdown" && <div>
-      <Card style={{ marginBottom:14 }}><Field label="เลือก Order"><select style={s.select} value={selOrder} onChange={e=>setSelOrder(e.target.value)}>{data.orders.map(o=><option key={o.id} value={o.id}>{o.orderNo||o.id} — {o.customer}</option>)}</select></Field></Card>
-      {cost && <Card>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:16 }}>🔬 สัดส่วนต้นทุน</div>
-        {[{label:"Fabric",value:cost.fabricCost,color:C.accent},{label:"Trim",value:cost.trimCost,color:C.accent2},{label:"Labor",value:cost.laborCost,color:C.ok},{label:"Print/EMB",value:cost.printCost,color:C.purple},{label:"Overhead",value:cost.overhead,color:C.warn}].filter(r=>r.value>0).map(row => {
-          const pct = (row.value/cost.totalPerUnit)*100;
-          return <div key={row.label} style={{ marginBottom:14 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}><span style={{ fontSize:12, color:C.sub }}>{row.label}</span><span style={{ fontSize:13, fontWeight:700, color:row.color }}>฿{fmt(row.value)} <span style={{ fontSize:10, color:C.muted }}>({pct.toFixed(1)}%)</span></span></div>
-            <ProgressBar value={pct} max={100} color={row.color}/>
-          </div>;
-        })}
-        <div style={{ marginTop:16, padding:"12px 14px", background:C.accent+"10", border:`1px solid ${C.accent}30`, borderRadius:8, display:"flex", justifyContent:"space-between" }}><span style={{ fontWeight:700, color:C.text }}>รวมต้นทุน/ตัว</span><span style={{ fontWeight:800, fontSize:20, color:C.accent }}>฿{fmt(cost.totalPerUnit)}</span></div>
-      </Card>}
-    </div>}
-  </div>;
+          <Card>
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", minWidth:650 }}>
+                <thead><tr>{["Order","ลูกค้า","Qty","ต้นทุน/ตัว","ราคา (30%)","กำไรรวม","Status"].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {allCosts.map((o, i) => (
+                    <tr key={o.id} style={{ background:i%2===0?"transparent":"#060b1640" }}>
+                      <td style={{ ...s.td, color:C.accent, fontWeight:700 }}>{o.id}</td>
+                      <td style={s.td}>{o.customer}</td>
+                      <td style={{ ...s.td, color:C.sub }}>{o.qty?.toLocaleString()}</td>
+                      <td style={s.td}>฿{fmt(o.cost.totalPerUnit)}</td>
+                      <td style={{ ...s.td, color:C.ok }}>฿{fmt(o.sell30)}</td>
+                      <td style={{ ...s.td, color:o.profit30>=0?C.ok:C.err, fontWeight:700 }}>฿{fmt(o.profit30)}</td>
+                      <td style={s.td}><Tag text={o.status} color={{ confirmed:C.accent2, production:C.ok, done:"#22c55e", draft:C.muted }[o.status]||C.muted} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === "breakdown" && (
+        <div>
+          <Card style={{ marginBottom:14 }}>
+            <Field label="เลือก Order เพื่อดูสัดส่วนต้นทุน">
+              <select style={s.select} value={selOrder} onChange={e => setSelOrder(e.target.value)}>
+                {data.orders.map(o => <option key={o.id} value={o.id}>{o.id} — {o.customer}</option>)}
+              </select>
+            </Field>
+          </Card>
+          {cost && (
+            <Card>
+              <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:16 }}>🔬 สัดส่วนต้นทุน — {ord?.id} ({ord?.customer})</div>
+              <BarChart rows={[
+                { label:"Fabric",    value:cost.fabricCost, max:cost.totalPerUnit, color:C.accent  },
+                { label:"Trim",      value:cost.trimCost,   max:cost.totalPerUnit, color:C.accent2 },
+                { label:"Labor",     value:cost.laborCost,  max:cost.totalPerUnit, color:C.ok      },
+                { label:"Print/EMB", value:cost.printCost,  max:cost.totalPerUnit, color:C.purple  },
+                { label:"Overhead",  value:cost.overhead,   max:cost.totalPerUnit, color:C.warn    },
+              ].filter(r => r.value > 0)} />
+              <div style={{ marginTop:16, padding:"12px 14px", background:C.accent+"10", border:`1px solid ${C.accent}30`, borderRadius:8, display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontWeight:700, color:C.text }}>รวมต้นทุน / ตัว</span>
+                <span style={{ fontWeight:800, fontSize:20, color:C.accent }}>฿{fmt(cost.totalPerUnit)}</span>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ════════════════════════════════════════════════════════════════
