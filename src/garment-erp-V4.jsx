@@ -1659,11 +1659,145 @@ function ReportModule() {
 }
 
 // ════════════════════════════════════════════════════════════════
-// § 16  APP SHELL
+// § 16  MODULE: DASHBOARD
+// ════════════════════════════════════════════════════════════════
+function DashboardModule({ setActiveModule }) {
+  const { data } = useData();
+  const totalOrders    = data.orders.length;
+  const inProduction   = data.orders.filter(o=>o.status==="production").length;
+  const doneOrders     = data.orders.filter(o=>o.status==="done").length;
+  const urgentOrders   = data.orders.filter(o=>o.priority==="urgent"||o.priority==="high").length;
+  const totalRevenue   = (data.saleInvoices||[]).reduce((s,i)=>s+(i.amount||0),0);
+  const paidRevenue    = (data.saleInvoices||[]).filter(i=>i.status==="paid").reduce((s,i)=>s+(i.amount||0),0);
+  const pendingRevenue = (data.saleInvoices||[]).filter(i=>i.status==="pending").reduce((s,i)=>s+(i.amount||0),0);
+  const allItems       = [...data.fabrics.map(f=>({...f,minQty:f.minQty||0})),...data.accessories.map(a=>({...a,minQty:a.minQty||0}))];
+  const lowStockCount  = allItems.filter(i=>(data.stock[i.id]||0)<i.minQty&&i.minQty>0).length;
+  const totalStockVal  = allItems.reduce((s,i)=>s+(data.stock[i.id]||0)*i.costPerUnit,0);
+  const collectionRate = totalRevenue>0?((paidRevenue/totalRevenue)*100).toFixed(0):0;
+  const statusData     = ["draft","confirmed","production","qc","ready","shipped","done","cancelled"].map(st=>({ label:st, value:data.orders.filter(o=>o.status===st).length, color:ORDER_STATUS_COLOR[st]||C.muted })).filter(x=>x.value>0);
+  const maxStatusVal   = Math.max(...statusData.map(x=>x.value),1);
+  const recentOrders   = [...data.orders].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,6);
+  const lowStockItems  = allItems.filter(i=>(data.stock[i.id]||0)<(i.minQty||0)&&(i.minQty||0)>0).slice(0,5);
+  const recentOrd      = [...data.orders].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,5);
+
+  return <div>
+    <SectionHead title="📊 DASHBOARD" sub={`ภาพรวมระบบ ERP — ${new Date().toLocaleDateString("th-TH",{year:"numeric",month:"long",day:"numeric"})}`}/>
+
+    {/* KPI Row */}
+    <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:14 }}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"18px 20px", cursor:"pointer" }} onClick={()=>setActiveModule("order")}>
+        <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:0.5, marginBottom:8 }}>📋 Orders ทั้งหมด</div>
+        <div style={{ fontSize:32, fontWeight:800, color:C.accent }}>{totalOrders}</div>
+        <div style={{ fontSize:11, color:C.muted, marginTop:6 }}>🏭 ผลิต <strong style={{color:C.ok}}>{inProduction}</strong> · ✅ เสร็จ <strong style={{color:C.ok}}>{doneOrders}</strong></div>
+        {urgentOrders>0&&<div style={{ fontSize:11, color:C.err, marginTop:4 }}>🔴 ด่วน {urgentOrders} รายการ</div>}
+      </div>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"18px 20px", cursor:"pointer" }} onClick={()=>setActiveModule("sales")}>
+        <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:0.5, marginBottom:8 }}>💰 Revenue รวม</div>
+        <div style={{ fontSize:28, fontWeight:800, color:C.ok }}>฿{(totalRevenue/1000).toFixed(1)}K</div>
+        <div style={{ fontSize:11, color:C.muted, marginTop:6 }}>รับแล้ว <strong style={{color:C.ok}}>฿{(paidRevenue/1000).toFixed(1)}K</strong></div>
+        <div style={{ fontSize:11, color:C.muted }}>รอรับ <strong style={{color:"#eab308"}}>฿{(pendingRevenue/1000).toFixed(1)}K</strong></div>
+      </div>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"18px 20px", cursor:"pointer" }} onClick={()=>setActiveModule("inventory")}>
+        <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:0.5, marginBottom:8 }}>🏬 มูลค่าสต็อก</div>
+        <div style={{ fontSize:28, fontWeight:800, color:C.cyan }}>฿{(totalStockVal/1000).toFixed(1)}K</div>
+        <div style={{ fontSize:11, color:C.muted, marginTop:6 }}>{allItems.length} รายการ</div>
+        {lowStockCount>0&&<div style={{ fontSize:11, color:C.warn, marginTop:4 }}>⚠️ ต่ำกว่า Min {lowStockCount} รายการ</div>}
+      </div>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"18px 20px" }}>
+        <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:0.5, marginBottom:8 }}>📊 Collection Rate</div>
+        <div style={{ fontSize:32, fontWeight:800, color:C.accent2 }}>{collectionRate}%</div>
+        <div style={{ marginTop:10, background:C.border, borderRadius:4, height:6 }}>
+          <div style={{ width:collectionRate+"%", height:"100%", background:C.accent2, borderRadius:4 }}/>
+        </div>
+      </div>
+    </div>
+
+    {/* Charts Row */}
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14 }}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:20 }}>
+        <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:16 }}>📋 Order Status</div>
+        {statusData.length===0&&<div style={{ textAlign:"center", padding:32, color:C.muted }}>ไม่มี Order</div>}
+        {statusData.map(item=>(
+          <div key={item.label} style={{ marginBottom:10 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+              <span style={{ fontSize:11, color:C.sub, textTransform:"capitalize" }}>{item.label}</span>
+              <span style={{ fontSize:12, fontWeight:700, color:item.color }}>{item.value}</span>
+            </div>
+            <div style={{ background:C.border, borderRadius:4, height:8 }}>
+              <div style={{ width:`${(item.value/maxStatusVal)*100}%`, height:"100%", background:item.color, borderRadius:4 }}/>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:20 }}>
+        <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:16 }}>💰 มูลค่า Order ล่าสุด</div>
+        {recentOrders.length===0&&<div style={{ textAlign:"center", padding:32, color:C.muted }}>ไม่มี Order</div>}
+        {(()=>{ const maxVal=Math.max(...recentOrders.map(o=>o.totalAmount||0),1); return recentOrders.map(o=>(
+          <div key={o.id} style={{ marginBottom:10 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+              <span style={{ fontSize:11, color:C.sub }}>{o.customer}</span>
+              <span style={{ fontSize:11, fontWeight:700, color:C.ok }}>฿{((o.totalAmount||0)/1000).toFixed(1)}K</span>
+            </div>
+            <div style={{ background:C.border, borderRadius:4, height:8 }}>
+              <div style={{ width:`${((o.totalAmount||0)/maxVal)*100}%`, height:"100%", background:C.ok, borderRadius:4 }}/>
+            </div>
+          </div>
+        )); })()}
+      </div>
+    </div>
+
+    {/* Bottom Row */}
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1.6fr", gap:14 }}>
+      <div style={{ background:C.card, border:`1px solid ${lowStockCount>0?C.warn:C.border}`, borderRadius:12, padding:20 }}>
+        <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:14 }}>⚠️ Low Stock Alert</div>
+        {lowStockItems.length===0&&<div style={{ textAlign:"center", padding:24 }}><div style={{ fontSize:28, marginBottom:8 }}>✅</div><div style={{ fontSize:12, color:C.ok }}>สต็อกทุกรายการปกติ</div></div>}
+        {lowStockItems.map(item=>{ const qty=data.stock[item.id]||0; const pct=item.minQty>0?Math.min(100,(qty/item.minQty)*100):100; const color=qty===0?C.err:pct<50?C.err:C.warn;
+          return <div key={item.id} style={{ marginBottom:12, padding:"10px 12px", background:"#060b16", borderRadius:8 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+              <span style={{ fontSize:11, color:C.text }}>{item.name}</span>
+              <span style={{ fontSize:11, fontWeight:700, color }}>{qty} / {item.minQty} {item.unit}</span>
+            </div>
+            <div style={{ background:C.border, borderRadius:4, height:5 }}>
+              <div style={{ width:pct+"%", height:"100%", background:color, borderRadius:4 }}/>
+            </div>
+          </div>;
+        })}
+        <button onClick={()=>setActiveModule("inventory")} style={{ ...s.btnGhost, width:"100%", marginTop:8, fontSize:11 }}>ดู Inventory ทั้งหมด →</button>
+      </div>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:20 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:14 }}>
+          <span style={{ fontSize:13, fontWeight:700, color:C.text }}>📋 Order ล่าสุด</span>
+          <button onClick={()=>setActiveModule("order")} style={{ ...s.btnGhost, padding:"3px 10px", fontSize:11 }}>ดูทั้งหมด →</button>
+        </div>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse" }}>
+            <thead><tr>{["Order No.","ลูกค้า","Qty","มูลค่า","Priority","Status"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+            <tbody>
+              {recentOrd.length===0&&<tr><td colSpan={6} style={{ ...s.td, textAlign:"center", color:C.muted, padding:24 }}>ไม่มี Order</td></tr>}
+              {recentOrd.map((o,i)=>(
+                <tr key={o.id} style={{ background:i%2===0?"transparent":"#060b1640" }}>
+                  <td style={{ ...s.td, color:C.accent, fontWeight:700, fontFamily:"monospace", fontSize:11 }}>{o.orderNo||o.id}</td>
+                  <td style={s.td}>{o.customer}</td>
+                  <td style={{ ...s.td, color:C.sub }}>{(o.qty||0).toLocaleString()}</td>
+                  <td style={{ ...s.td, color:C.ok }}>฿{((o.totalAmount||0)/1000).toFixed(1)}K</td>
+                  <td style={s.td}><Tag text={o.priority||"normal"} color={PRIORITY_COLOR[o.priority||"normal"]}/></td>
+                  <td style={s.td}><Tag text={o.status} color={ORDER_STATUS_COLOR[o.status]||C.muted}/></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+// ════════════════════════════════════════════════════════════════
+// § 17  APP SHELL
 // ════════════════════════════════════════════════════════════════
 function AppShell() {
   const { data, itemMaster } = useData();
-  const [activeModule,  setActiveModule]  = useState("order");
+  const [activeModule,  setActiveModule]  = useState("dashboard");
   const [activeOrderId, setActiveOrderId] = useState(null);
   const [lang,          setLang]          = useState("EN");
   _lang = lang;
@@ -1675,6 +1809,7 @@ function AppShell() {
   const urgentOrders    = data.orders.filter(o=>o.priority==="urgent"||o.priority==="high").length;
 
   const navItems = [
+    {id:"dashboard", label:"🏠 Dashboard"   },
     {id:"items",     label:t("navItems")    },
     {id:"master",    label:t("navMaster")   },
     {id:"order",     label:t("navOrder")    },
@@ -1714,6 +1849,7 @@ function AppShell() {
 
       {/* MODULE ROUTER */}
       <div style={{ maxWidth:1280, margin:"0 auto", padding:"28px 20px" }}>
+        {activeModule==="dashboard" && <DashboardModule setActiveModule={setActiveModule}/>}
         {activeModule==="items"     && <ItemMasterModule/>}
         {activeModule==="master"    && <MasterModule/>}
         {activeModule==="order"     && <OrderModule setActiveOrderId={setActiveOrderId} setActiveModule={setActiveModule}/>}
