@@ -1496,16 +1496,18 @@ function CostingModule() {
   const [sellPrice, setSellPrice] = useState("");
 
   const ord          = data.orders.find(o => o.id === selOrder);
-  const cost         = ord ? calcCost(ord, data.patterns, data.fabrics, data.accessories, data.printTypes, data.costRates) : null;
-  const pat          = ord && data.patterns.find(p => p.id === ord.patternId);
-  const costRows     = buildCostRows(cost, pat, ord, data.fabrics, data.printTypes, data.costRates);
+  const ordResolved  = ord ? { ...ord, patternId: ord.patternId || ord.slots?.[0]?.patternId || "", printTypeId: ord.printTypeId || ord.slots?.[0]?.printTypeId || "PT001" } : null;
+  const cost         = ordResolved ? calcCost(ordResolved, data.patterns, data.fabrics, data.accessories, data.printTypes, data.costRates) : null;
+  const pat          = ordResolved && data.patterns.find(p => p.id === ordResolved.patternId);
+  const costRows     = buildCostRows(cost, pat, ordResolved, data.fabrics, data.printTypes, data.costRates);
   const finalSell    = mode === "margin" ? (cost ? cost.totalPerUnit * (1 + margin/100) : 0) : (parseFloat(sellPrice)||(cost?.totalPerUnit||0));
   const profitPerUnit = cost ? finalSell - cost.totalPerUnit : 0;
-  const profitTotal  = profitPerUnit * (ord?.qty || 0);
+  const profitTotal  = profitPerUnit * (ordResolved?.qty || 0);
   const marginActual = finalSell > 0 ? (profitPerUnit / finalSell) * 100 : 0;
 
   const allCosts = useMemo(() => data.orders.map(o => {
-    const c = calcCost(o, data.patterns, data.fabrics, data.accessories, data.printTypes, data.costRates);
+    const oRes = { ...o, patternId: o.patternId || o.slots?.[0]?.patternId || "", printTypeId: o.printTypeId || o.slots?.[0]?.printTypeId || "PT001" };
+    const c = calcCost(oRes, data.patterns, data.fabrics, data.accessories, data.printTypes, data.costRates);
     if (!c) return null;
     return { ...o, cost:c, sell30:c.totalPerUnit*1.3, profit30:c.totalPerUnit*0.3*o.qty };
   }).filter(Boolean), [data]);
@@ -1524,7 +1526,7 @@ function CostingModule() {
               </select>
             </Field>
           </Card>
-          {cost && ord && (
+          {cost && ordResolved && (
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
               <Card>
                 <div style={{ fontWeight:700, fontSize:13, color:C.text, marginBottom:12, paddingBottom:8, borderBottom:`1px solid ${C.border}` }}>ต้นทุน / ตัว</div>
@@ -1539,14 +1541,14 @@ function CostingModule() {
                   <span style={{ fontWeight:800, fontSize:18, color:C.accent }}>฿{fmt(cost.totalPerUnit)}</span>
                 </div>
                 <div style={{ display:"flex", justifyContent:"space-between", padding:"4px 0" }}>
-                  <span style={{ fontSize:12, color:C.muted }}>รวม ({ord.qty?.toLocaleString()} ตัว)</span>
+                  <span style={{ fontSize:12, color:C.muted }}>รวม ({ordResolved.qty?.toLocaleString()} ตัว)</span>
                   <span style={{ fontSize:14, fontWeight:700, color:C.accent }}>฿{fmt(cost.totalCost)}</span>
                 </div>
-                {ord.targetPrice > 0 && (
-                  <div style={{ marginTop:10, padding:"8px 12px", borderRadius:6, background:ord.targetPrice>=cost.totalPerUnit?C.ok+"15":C.err+"15", border:`1px solid ${ord.targetPrice>=cost.totalPerUnit?C.ok:C.err}40` }}>
+                {ordResolved.targetPrice > 0 && (
+                  <div style={{ marginTop:10, padding:"8px 12px", borderRadius:6, background:ordResolved.targetPrice>=cost.totalPerUnit?C.ok+"15":C.err+"15", border:`1px solid ${ordResolved.targetPrice>=cost.totalPerUnit?C.ok:C.err}40` }}>
                     <div style={{ fontSize:11, color:C.muted }}>ราคาเป้าหมาย vs ต้นทุน</div>
-                    <div style={{ fontWeight:700, color:ord.targetPrice>=cost.totalPerUnit?C.ok:C.err }}>
-                      ฿{fmt(ord.targetPrice)} {ord.targetPrice>=cost.totalPerUnit?"✓ กำไร":"✗ ขาดทุน"}
+                    <div style={{ fontWeight:700, color:ordResolved.targetPrice>=cost.totalPerUnit?C.ok:C.err }}>
+                      ฿{fmt(ordResolved.targetPrice)} {ordResolved.targetPrice>=cost.totalPerUnit?"✓ กำไร":"✗ ขาดทุน"}
                     </div>
                   </div>
                 )}
