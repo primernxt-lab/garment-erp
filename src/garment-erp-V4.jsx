@@ -1521,72 +1521,83 @@ function CostingModule() {
         <div>
           <Card style={{ marginBottom:14 }}>
             <Field label="เลือก Order เพื่อคำนวณต้นทุน">
-              <select style={s.select} value={selOrder} onChange={e => setSelOrder(e.target.value)}>
+              <select style={{ ...s.select, fontSize:14, padding:"12px 14px" }} value={selOrder} onChange={e => setSelOrder(e.target.value)}>
                 {data.orders.map(o => <option key={o.id} value={o.id}>{o.id} — {o.customer} ({o.qty} ตัว)</option>)}
               </select>
             </Field>
           </Card>
+
+          {!cost && ordResolved && (
+            <div style={{ padding:"20px 24px", background:C.warn+"15", border:`1px solid ${C.warn}50`, borderRadius:10, marginBottom:14 }}>
+              <div style={{ fontSize:15, fontWeight:700, color:C.warn, marginBottom:8 }}>⚠️ ไม่สามารถคำนวณต้นทุนได้</div>
+              <div style={{ fontSize:13, color:C.sub }}>Order นี้ยังไม่ได้ผูก Pattern ครับ — ไปที่ Orders แล้วกด Edit เพื่อเพิ่ม Pattern ในรายการสินค้า</div>
+              <div style={{ marginTop:10, fontSize:12, color:C.muted }}>
+                Pattern ID: <strong style={{ color:C.err }}>{ordResolved.patternId || "ไม่มี"}</strong>
+              </div>
+            </div>
+          )}
+
           {cost && ordResolved && (
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
               <Card>
-                <div style={{ fontWeight:700, fontSize:13, color:C.text, marginBottom:12, paddingBottom:8, borderBottom:`1px solid ${C.border}` }}>ต้นทุน / ตัว</div>
+                <div style={{ fontWeight:700, fontSize:16, color:C.text, marginBottom:16, paddingBottom:10, borderBottom:`1px solid ${C.border}` }}>💰 ต้นทุน / ตัว</div>
                 {costRows.map(([k, v]) => (
-                  <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", fontSize:12, borderBottom:`1px solid #0a1020` }}>
+                  <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", fontSize:14, borderBottom:`1px solid #0a1020` }}>
                     <span style={{ color:C.sub }}>{k}</span>
-                    <span style={{ color:C.text }}>฿{fmt(v)}</span>
+                    <span style={{ color:C.text, fontWeight:600 }}>฿{fmt(v)}</span>
                   </div>
                 ))}
-                <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", marginTop:4 }}>
-                  <span style={{ fontWeight:700, color:C.text }}>รวมต้นทุน / ตัว</span>
-                  <span style={{ fontWeight:800, fontSize:18, color:C.accent }}>฿{fmt(cost.totalPerUnit)}</span>
+                <div style={{ display:"flex", justifyContent:"space-between", padding:"12px 0", marginTop:6, borderTop:`2px solid ${C.border}` }}>
+                  <span style={{ fontWeight:700, fontSize:15, color:C.text }}>รวมต้นทุน / ตัว</span>
+                  <span style={{ fontWeight:800, fontSize:24, color:C.accent }}>฿{fmt(cost.totalPerUnit)}</span>
                 </div>
-                <div style={{ display:"flex", justifyContent:"space-between", padding:"4px 0" }}>
-                  <span style={{ fontSize:12, color:C.muted }}>รวม ({ordResolved.qty?.toLocaleString()} ตัว)</span>
-                  <span style={{ fontSize:14, fontWeight:700, color:C.accent }}>฿{fmt(cost.totalCost)}</span>
+                <div style={{ display:"flex", justifyContent:"space-between", padding:"6px 0" }}>
+                  <span style={{ fontSize:14, color:C.muted }}>รวม {ordResolved.qty?.toLocaleString()} ตัว</span>
+                  <span style={{ fontSize:18, fontWeight:700, color:C.accent }}>฿{fmt(cost.totalCost)}</span>
                 </div>
                 {ordResolved.targetPrice > 0 && (
-                  <div style={{ marginTop:10, padding:"8px 12px", borderRadius:6, background:ordResolved.targetPrice>=cost.totalPerUnit?C.ok+"15":C.err+"15", border:`1px solid ${ordResolved.targetPrice>=cost.totalPerUnit?C.ok:C.err}40` }}>
-                    <div style={{ fontSize:11, color:C.muted }}>ราคาเป้าหมาย vs ต้นทุน</div>
-                    <div style={{ fontWeight:700, color:ordResolved.targetPrice>=cost.totalPerUnit?C.ok:C.err }}>
-                      ฿{fmt(ordResolved.targetPrice)} {ordResolved.targetPrice>=cost.totalPerUnit?"✓ กำไร":"✗ ขาดทุน"}
+                  <div style={{ marginTop:12, padding:"12px 14px", borderRadius:8, background:ordResolved.targetPrice>=cost.totalPerUnit?C.ok+"15":C.err+"15", border:`1px solid ${ordResolved.targetPrice>=cost.totalPerUnit?C.ok:C.err}40` }}>
+                    <div style={{ fontSize:12, color:C.muted, marginBottom:4 }}>ราคาเป้าหมาย vs ต้นทุน</div>
+                    <div style={{ fontWeight:700, fontSize:15, color:ordResolved.targetPrice>=cost.totalPerUnit?C.ok:C.err }}>
+                      ฿{fmt(ordResolved.targetPrice)} / ตัว — {ordResolved.targetPrice>=cost.totalPerUnit?"✓ กำไร":"✗ ขาดทุน"}
                     </div>
                   </div>
                 )}
               </Card>
               <Card>
-                <div style={{ fontWeight:700, fontSize:13, color:C.text, marginBottom:12, paddingBottom:8, borderBottom:`1px solid ${C.border}` }}>ตั้งราคาขาย</div>
-                <div style={{ display:"flex", gap:6, marginBottom:14 }}>
+                <div style={{ fontWeight:700, fontSize:16, color:C.text, marginBottom:16, paddingBottom:10, borderBottom:`1px solid ${C.border}` }}>🎯 ตั้งราคาขาย</div>
+                <div style={{ display:"flex", gap:8, marginBottom:16 }}>
                   {[["margin","🎯 Margin %"],["manual","✏️ ราคาเอง"]].map(([m,l]) => (
-                    <button key={m} onClick={() => setMode(m)} style={{ flex:1, padding:"8px", border:"none", borderRadius:6, cursor:"pointer", fontFamily:"inherit", fontSize:11, fontWeight:700, background:mode===m?C.accent:"#060b16", color:mode===m?"#000":C.muted }}>{l}</button>
+                    <button key={m} onClick={() => setMode(m)} style={{ flex:1, padding:"10px", border:"none", borderRadius:8, cursor:"pointer", fontFamily:"inherit", fontSize:13, fontWeight:700, background:mode===m?C.accent:"#060b16", color:mode===m?"#000":C.muted }}>{l}</button>
                   ))}
                 </div>
                 {mode === "margin" ? (
                   <div>
-                    <div style={{ fontSize:12, color:C.muted, marginBottom:6 }}>Margin: <strong style={{ color:C.accent }}>{margin}%</strong></div>
-                    <input type="range" min={0} max={100} value={margin} onChange={e => setMargin(Number(e.target.value))} style={{ width:"100%", accentColor:C.accent }} />
+                    <div style={{ fontSize:14, color:C.muted, marginBottom:8 }}>Margin: <strong style={{ color:C.accent, fontSize:18 }}>{margin}%</strong></div>
+                    <input type="range" min={0} max={100} value={margin} onChange={e => setMargin(Number(e.target.value))} style={{ width:"100%", accentColor:C.accent, height:6 }} />
                   </div>
                 ) : (
                   <Field label="ราคาขาย / ตัว (฿)">
-                    <input style={s.input} type="number" value={sellPrice} onChange={e => setSellPrice(e.target.value)} placeholder={`แนะนำ ฿${fmt(cost.totalPerUnit*1.3)}`} />
+                    <input style={{ ...s.input, fontSize:14, padding:"12px 14px" }} type="number" value={sellPrice} onChange={e => setSellPrice(e.target.value)} placeholder={`แนะนำ ฿${fmt(cost.totalPerUnit*1.3)}`} />
                   </Field>
                 )}
-                <div style={{ marginTop:16, display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                <div style={{ marginTop:20, display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                   {[
                     ["ราคาขาย/ตัว",  `฿${fmt(finalSell)}`,               C.accent],
                     ["กำไร/ตัว",     `฿${fmt(profitPerUnit)}`,            profitPerUnit>=0?C.ok:C.err],
                     ["Margin จริง",  `${marginActual.toFixed(1)}%`,       profitPerUnit>=0?C.ok:C.err],
                     ["กำไรรวม",      `฿${fmt(profitTotal)}`,              profitTotal>=0?C.ok:C.err],
                   ].map(([k,v,c]) => (
-                    <div key={k} style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px" }}>
-                      <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase" }}>{k}</div>
-                      <div style={{ fontSize:16, fontWeight:700, color:c, marginTop:3 }}>{v}</div>
+                    <div key={k} style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" }}>
+                      <div style={{ fontSize:11, color:C.muted, textTransform:"uppercase", letterSpacing:0.5, marginBottom:6 }}>{k}</div>
+                      <div style={{ fontSize:22, fontWeight:800, color:c }}>{v}</div>
                     </div>
                   ))}
                 </div>
               </Card>
             </div>
           )}
-          {!cost && <div style={{ textAlign:"center", padding:48, color:C.muted }}>เลือก Order เพื่อดูต้นทุน</div>}
+          {!ordResolved && <div style={{ textAlign:"center", padding:48, color:C.muted, fontSize:14 }}>เลือก Order ด้านบนเพื่อดูต้นทุน</div>}
         </div>
       )}
 
