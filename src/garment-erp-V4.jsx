@@ -1782,9 +1782,9 @@ function DashboardModule({ setActiveModule }) {
   const totalRevenue   = (data.saleInvoices||[]).reduce((s,i)=>s+(i.amount||0),0);
   const paidRevenue    = (data.saleInvoices||[]).filter(i=>i.status==="paid").reduce((s,i)=>s+(i.amount||0),0);
   const pendingRevenue = (data.saleInvoices||[]).filter(i=>i.status==="pending").reduce((s,i)=>s+(i.amount||0),0);
-  const allItems       = [...data.fabrics.map(f=>({...f,minQty:f.minQty||0})),...data.accessories.map(a=>({...a,minQty:a.minQty||0}))];
+  const allItems       = [...data.fabrics.map(f=>({...f,minQty:f.minQty||0,costPerUnit:parseFloat(f.costPerUnit)||0})),...data.accessories.map(a=>({...a,minQty:a.minQty||0,costPerUnit:parseFloat(a.costPerUnit)||0}))];
   const lowStockCount  = allItems.filter(i=>(data.stock[i.id]||0)<i.minQty&&i.minQty>0).length;
-  const totalStockVal  = allItems.reduce((s,i)=>s+(data.stock[i.id]||0)*i.costPerUnit,0);
+  const totalStockVal  = allItems.reduce((s,i)=>s+(data.stock[i.id]||0)*(parseFloat(i.costPerUnit)||0),0);
   const collectionRate = totalRevenue>0?((paidRevenue/totalRevenue)*100).toFixed(0):0;
   const statusData     = ["draft","confirmed","production","qc","ready","shipped","done","cancelled"].map(st=>({ label:st, value:data.orders.filter(o=>o.status===st).length, color:ORDER_STATUS_COLOR[st]||C.muted })).filter(x=>x.value>0);
   const maxStatusVal   = Math.max(...statusData.map(x=>x.value),1);
@@ -1978,4 +1978,3 @@ function AppShell() {
 export default function GarmentERPV4() {
   return <DataProvider><AppShell/></DataProvider>;
 }
- 
