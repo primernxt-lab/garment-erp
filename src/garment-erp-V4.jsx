@@ -957,44 +957,30 @@ function BillFormModal({ bill, onSave, onClose, suppliers }) {
 
 function BOMModule({ activeOrderId }) {
   const { data, setData } = useData();
-  const [selOrder,    setSelOrder]    = useState(activeOrderId || data.orders[0]?.id || "");
-  const [activeTab,   setActiveTab]   = useState("bom");
-  const [billModal,   setBillModal]   = useState(false);
-  const [editBill,    setEditBill]    = useState(null);
-  const [compareItem, setCompareItem] = useState("");
-  const [cmpResults,  setCmpResults]  = useState([]);
-  const [poModal,     setPoModal]     = useState(false);
-  const [poForm,      setPoForm]      = useState({});
-  const [actualOrders, setActualOrders] = useState({}); // { itemId: { poNo, qty, pricePerUnit, supplier } }
+  const [selOrder,     setSelOrder]     = useState(activeOrderId || data.orders[0]?.id || "");
+  const [activeTab,    setActiveTab]    = useState("bom");
+  const [poModal,      setPoModal]      = useState(false);
+  const [poForm,       setPoForm]       = useState({});
+  const [actualOrders, setActualOrders] = useState({}); // { orderId: { itemId: { poNo, supplier, qty, pricePerUnit } } }
+  const [saveMsg,      setSaveMsg]      = useState("");
 
   useEffect(() => { if (activeOrderId) setSelOrder(activeOrderId); }, [activeOrderId]);
 
-  const ord  = data.orders.find(o => o.id===selOrder);
-  const pat  = ord && data.patterns.find(p => p.id===ord.patternId);
-  const fab  = pat && data.fabrics.find(f => f.id===pat.fabricId);
+  const ord        = data.orders.find(o => o.id===selOrder);
+  const pat        = ord && data.patterns.find(p => p.id===ord.patternId);
+  const fab        = pat && data.fabrics.find(f => f.id===pat.fabricId);
   const stockItems = buildStockItems(ord, pat, fab, data.fabrics, data.accessories, data.stock);
 
-  const saveBill    = (form) => { setData(d=>({...d,bills:[...d.bills.filter(b=>b.id!==form.id),form]})); db.upsertBill(form); setBillModal(false); setEditBill(null); };
-  const deleteBill  = (id)   => { setData(d=>({...d,bills:d.bills.filter(b=>b.id!==id)})); db.deleteBill(id); };
-  const totalPaid   = data.bills.filter(b=>b.status==="paid").reduce((s,b)=>s+(b.total||0),0);
-  const totalPend   = data.bills.filter(b=>b.status!=="paid").reduce((s,b)=>s+(b.total||0),0);
-  const bscol = (st) => ({ paid:C.ok, pending:"#eab308", partial:C.accent2 }[st]||C.muted);
-
-  const handleCompare = (name) => {
-    setCompareItem(name);
-    if (!name.trim()) { setCmpResults([]); return; }
-    const r = [];
-    data.bills.forEach(bill => {
-      (bill.items||[]).forEach(item => {
-        if ((item.materialName||"").toLowerCase().includes(name.toLowerCase())) {
-          r.push({ supplier:bill.supplier, date:bill.date, pricePerUnit:parseFloat(item.pricePerUnit)||0 });
-        }
-      });
-    });
-    setCmpResults(r.sort((a,b) => a.pricePerUnit-b.pricePerUnit));
+  // Load actual data per order
+  const currentActual = actualOrders[selOrder] || {};
+  const setItemActual = (itemId, field, val) => {
+    setActualOrders(prev => ({
+      ...prev,
+      [selOrder]: { ...prev[selOrder], [itemId]: { ...(prev[selOrder]||{})[itemId], [field]: val } }
+    }));
   };
 
-  // Reserve stock from BOM
+  // Reserve stock from BOM → ตัดสต็อก Inventory
   const reserveStock = () => {
     if (!stockItems.length) return;
     const newStock = { ...data.stock };
@@ -1007,8 +993,34 @@ function BOMModule({ activeOrderId }) {
       db.upsertStock(item.id, after);
     });
     setData(d => ({ ...d, stock:newStock, stockLog:newLog }));
-    alert(`✅ จองสต็อกสำเร็จ ${stockItems.length} รายการ`);
+    alert(`✅ จองสต็อกสำเร็จ ${stockItems.length} รายการ — Inventory อัพเดทแล้ว`);
   };
+
+  // Save actual purchase data
+  const saveActual = () => {
+    const key = `bom_actual_${selOrder}`;
+    try {
+      localStorage.setItem(key, JSON.stringify(currentActual));
+    } catch(e) {}
+    // Save to Supabase orders field
+    const updatedOrder = { ...ord, bomActual: currentActual };
+    db.upsertOrder(updatedOrder);
+    setSaveMsg("✅ บันทึกสำเร็จ");
+    setTimeout(() => setSaveMsg(""), 2500);
+  };
+
+  // Load actual on order change
+  useEffect(() => {
+    if (!selOrder) return;
+    if (ord?.bomActual) {
+      setActualOrders(prev => ({ ...prev, [selOrder]: ord.bomActual }));
+    } else {
+      try {
+        const saved = localStorage.getItem(`bom_actual_${selOrder}`);
+        if (saved) setActualOrders(prev => ({ ...prev, [selOrder]: JSON.parse(saved) }));
+      } catch(e) {}
+    }
+  }, [selOrder]);
 
   // Create PO
   const savePO = () => {
@@ -1018,22 +1030,9 @@ function BOMModule({ activeOrderId }) {
     setPoForm({});
   };
 
-  // Size cost breakdown
-  const sizeBreakdown = useMemo(() => {
-    if (!ord?.slots?.[0]?.sizeBreakdown || !pat) return [];
-    const sizes = ord.slots[0].sizeBreakdown.split(",").map(x => {
-      const [size, qty] = x.trim().split("×");
-      return { size:size?.trim(), qty:parseInt(qty)||0 };
-    }).filter(x => x.qty > 0);
-    if (!sizes.length) return [];
-    const cost = calcCost({ ...ord, qty:1 }, data.patterns, data.fabrics, data.accessories, data.printTypes, data.costRates);
-    if (!cost) return [];
-    return sizes.map(s => ({ ...s, cost:cost.totalPerUnit*s.qty, totalCost:cost.totalPerUnit*s.qty }));
-  }, [ord, pat, data]);
-
   return <div>
-    <SectionHead title="📦 BOM & ซื้อวัตถุดิบ" sub={`Bill of Materials · บิลซื้อ · เปรียบราคา${pat?` · BOM v${pat.bomVersion||1}`:""}`}/>
-    <TabBar tabs={[["bom","📋 BOM"],["size","📐 ต้นทุนแยกไซส์"],["actual","🛒 สั่งซื้อจริง vs BOM"],["bills",`🧾 บิล (${data.bills.length})`],["po",`🛒 PO (${(data.purchaseOrders||[]).length})`],["compare","⚖️ เปรียบราคา"]]} active={activeTab} setActive={setActiveTab}/>
+    <SectionHead title="📦 BOM" sub={`Bill of Materials · เปรียบ BOM vs สั่งซื้อจริง${pat?` · BOM v${pat.bomVersion||1}`:""}`}/>
+    <TabBar tabs={[["bom","📋 BOM"],["actual","🛒 สั่งซื้อจริง vs BOM"]]} active={activeTab} setActive={setActiveTab}/>
 
     {/* ── BOM TAB ── */}
     {activeTab==="bom" && <div>
@@ -1048,15 +1047,15 @@ function BOMModule({ activeOrderId }) {
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:14 }}>
           {[["Order",ord.orderNo||ord.id],["ลูกค้า",ord.customer],["Pattern",`${pat.styleCode||""} ${pat.name}`],["BOM Version",`v${pat.bomVersion||1}`]].map(([k,v]) => (
             <div key={k} style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px" }}>
-              <div style={{ fontSize:26, color:C.muted, textTransform:"uppercase" }}>{k}</div>
-              <div style={{ fontSize:17, fontWeight:700, color:C.accent, marginTop:3 }}>{v}</div>
+              <div style={{ fontSize:13, color:C.muted, textTransform:"uppercase" }}>{k}</div>
+              <div style={{ fontSize:15, fontWeight:700, color:C.accent, marginTop:3 }}>{v}</div>
             </div>
           ))}
         </div>
         <Card>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
-            <div style={{ fontWeight:700, color:C.text, fontSize:17 }}>รายการวัตถุดิบ</div>
-            <button style={s.btnSm(C.ok)} onClick={reserveStock}>🔒 จองสต็อก</button>
+            <div style={{ fontWeight:700, color:C.text, fontSize:15 }}>รายการวัตถุดิบ</div>
+            <button style={s.btnSm(C.ok)} onClick={reserveStock}>🔒 จองสต็อก → ตัด Inventory</button>
           </div>
           <div style={{ overflowX:"auto" }}>
             <table style={{ width:"100%", borderCollapse:"collapse", minWidth:600 }}>
@@ -1069,74 +1068,34 @@ function BOMModule({ activeOrderId }) {
                   <td style={{ ...s.td, color:item.ok?C.ok:C.err }}>{item.have} {item.unit}</td>
                   <td style={s.td}>฿{fmt(item.costEach)}</td>
                   <td style={{ ...s.td, color:C.accent }}>฿{fmt(item.totalCost)}</td>
-                  <td style={s.td}>{item.ok ? <Tag text="✓ จองสต็อก" color={C.ok}/> : <div style={{ display:"flex", gap:4, alignItems:"center" }}><Tag text={`✗ ขาด ${(parseFloat(item.needed)-item.have).toFixed(0)}`} color={C.err}/><button onClick={() => { setPoForm({ itemName:item.name, qty:parseFloat(item.needed)-item.have, unit:item.unit }); setPoModal(true); }} style={{ ...s.btnSm(C.warn), padding:"2px 6px", fontSize:26 }}>สร้าง PO</button></div>}</td>
+                  <td style={s.td}>
+                    {item.ok
+                      ? <Tag text="✓ จองสต็อก" color={C.ok}/>
+                      : <div style={{ display:"flex", gap:4, alignItems:"center" }}>
+                          <Tag text={`✗ ขาด ${(parseFloat(item.needed)-item.have).toFixed(0)}`} color={C.err}/>
+                          <button onClick={() => { setPoForm({ itemName:item.name, qty:parseFloat(item.needed)-item.have, unit:item.unit }); setPoModal(true); }} style={{ ...s.btnSm(C.warn), padding:"2px 6px", fontSize:12 }}>สร้าง PO</button>
+                        </div>
+                    }
+                  </td>
                 </tr>
               ))}</tbody>
             </table>
           </div>
           <div style={{ marginTop:12, padding:"10px 14px", background:"#060b16", borderRadius:6, display:"flex", justifyContent:"space-between" }}>
-            <span style={{ fontSize:26, color:C.sub }}>ต้นทุนวัตถุดิบรวม</span>
-            <span style={{ fontSize:26, fontWeight:700, color:C.accent }}>฿{fmt(stockItems.reduce((s,i)=>s+i.totalCost,0))}</span>
+            <span style={{ fontSize:14, color:C.sub }}>ต้นทุนวัตถุดิบรวม</span>
+            <span style={{ fontSize:16, fontWeight:700, color:C.accent }}>฿{fmt(stockItems.reduce((s,i)=>s+i.totalCost,0))}</span>
           </div>
         </Card>
         {stockItems.some(i=>!i.ok) && (
           <div style={{ marginTop:12, padding:14, background:C.err+"10", border:`1px solid ${C.err}40`, borderRadius:8 }}>
             <div style={{ fontWeight:700, color:C.err, marginBottom:6 }}>⚠️ สต็อกไม่เพียงพอ — ต้องสั่งซื้อ:</div>
             {stockItems.filter(i=>!i.ok).map((item,i) => (
-              <div key={i} style={{ fontSize:26, color:C.sub, marginLeft:16 }}>• {item.name}: ขาด {(parseFloat(item.needed)-item.have).toFixed(0)} {item.unit}</div>
+              <div key={i} style={{ fontSize:14, color:C.sub, marginLeft:16 }}>• {item.name}: ขาด {(parseFloat(item.needed)-item.have).toFixed(0)} {item.unit}</div>
             ))}
           </div>
         )}
       </div>}
       {!ord && <div style={{ textAlign:"center", padding:32, color:C.muted }}>เลือก Order</div>}
-    </div>}
-
-    {/* ── SIZE COST TAB ── */}
-    {activeTab==="size" && <div>
-      <Card style={{ marginBottom:14 }}>
-        <Field label="เลือก Order">
-          <select style={s.select} value={selOrder} onChange={e=>setSelOrder(e.target.value)}>
-            {data.orders.map(o => <option key={o.id} value={o.id}>{o.orderNo||o.id} — {o.customer}</option>)}
-          </select>
-        </Field>
-      </Card>
-      {sizeBreakdown.length > 0 ? (
-        <Card>
-          <div style={{ fontSize:17, fontWeight:700, color:C.text, marginBottom:16 }}>📐 ต้นทุนแยกตามไซส์ — {ord?.orderNo||ord?.id}</div>
-          <table style={{ width:"100%", borderCollapse:"collapse" }}>
-            <thead><tr>{["Size","จำนวน (ตัว)","ต้นทุน/ตัว","ต้นทุนรวม","% ของทั้งหมด"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
-            <tbody>
-              {sizeBreakdown.map((row,i) => {
-                const cost     = calcCost({ ...ord, qty:1 }, data.patterns, data.fabrics, data.accessories, data.printTypes, data.costRates);
-                const totalAll = sizeBreakdown.reduce((s,r)=>s+r.totalCost,0);
-                const pct      = totalAll>0?(row.totalCost/totalAll)*100:0;
-                return <tr key={i}>
-                  <td style={{ ...s.td, fontWeight:700, color:C.cyan }}>{row.size}</td>
-                  <td style={{ ...s.td, color:C.accent }}>{row.qty.toLocaleString()}</td>
-                  <td style={s.td}>฿{fmt(cost?.totalPerUnit||0)}</td>
-                  <td style={{ ...s.td, color:C.ok, fontWeight:700 }}>฿{fmt(row.totalCost)}</td>
-                  <td style={s.td}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ fontSize:17 }}>{pct.toFixed(1)}%</span>
-                      <div style={{ flex:1 }}><ProgressBar value={pct} max={100} color={C.accent}/></div>
-                    </div>
-                  </td>
-                </tr>;
-              })}
-            </tbody>
-          </table>
-          <div style={{ marginTop:10, padding:"10px 14px", background:"#060b16", borderRadius:6, display:"flex", justifyContent:"space-between" }}>
-            <span style={{ fontSize:26, color:C.sub }}>ต้นทุนรวมทุกไซส์</span>
-            <span style={{ fontSize:26, fontWeight:700, color:C.accent }}>฿{fmt(sizeBreakdown.reduce((s,r)=>s+r.totalCost,0))}</span>
-          </div>
-        </Card>
-      ) : (
-        <div style={{ textAlign:"center", padding:48, color:C.muted }}>
-          <div style={{ fontSize:32, marginBottom:12 }}>📐</div>
-          <div>เลือก Order ที่มีข้อมูล Size Breakdown</div>
-          <div style={{ fontSize:17, color:C.muted, marginTop:6 }}>เช่น: S×100, M×200, L×150</div>
-        </div>
-      )}
     </div>}
 
     {/* ── ACTUAL vs BOM TAB ── */}
@@ -1149,245 +1108,114 @@ function BOMModule({ activeOrderId }) {
         </Field>
       </Card>
 
-      {ord && pat && stockItems.length > 0 ? (
-        <div>
-          {/* Summary KPI */}
-          {(() => {
-            const bomTotal   = stockItems.reduce((s,i)=>s+i.totalCost, 0);
-            const actualTotal = stockItems.reduce((s,i)=>{
-              const a = actualOrders[i.id];
-              return s + (a ? (parseFloat(a.qty)||0)*(parseFloat(a.pricePerUnit)||0) : 0);
-            }, 0);
-            const diff = actualTotal - bomTotal;
-            return (
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:16 }}>
-                <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 18px" }}>
-                  <div style={{ fontSize:13, color:C.muted, marginBottom:6 }}>📋 ต้นทุน BOM รวม</div>
-                  <div style={{ fontSize:22, fontWeight:800, color:C.accent }}>฿{fmt(bomTotal)}</div>
+      {ord && pat && stockItems.length > 0 ? <div>
+        {/* KPI Summary */}
+        {(() => {
+          const bomTotal    = stockItems.reduce((s,i)=>s+i.totalCost, 0);
+          const actualTotal = stockItems.reduce((s,i)=>{
+            const a = currentActual[i.id];
+            return s + (a ? (parseFloat(a.qty)||0)*(parseFloat(a.pricePerUnit)||0) : 0);
+          }, 0);
+          const diff = actualTotal - bomTotal;
+          return (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:16 }}>
+              <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 18px" }}>
+                <div style={{ fontSize:13, color:C.muted, marginBottom:6 }}>📋 ต้นทุน BOM รวม</div>
+                <div style={{ fontSize:24, fontWeight:800, color:C.accent }}>฿{fmt(bomTotal)}</div>
+              </div>
+              <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 18px" }}>
+                <div style={{ fontSize:13, color:C.muted, marginBottom:6 }}>🛒 สั่งซื้อจริงรวม</div>
+                <div style={{ fontSize:24, fontWeight:800, color:C.ok }}>฿{fmt(actualTotal)}</div>
+              </div>
+              <div style={{ background:C.card, border:`1px solid ${diff>0?C.err:C.ok}50`, borderRadius:12, padding:"16px 18px" }}>
+                <div style={{ fontSize:13, color:C.muted, marginBottom:6 }}>⚖️ ผลต่าง (จริง − BOM)</div>
+                <div style={{ fontSize:24, fontWeight:800, color:diff>0?C.err:diff<0?C.ok:C.muted }}>
+                  {diff>0?"+":""}{fmt(diff)}
                 </div>
-                <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 18px" }}>
-                  <div style={{ fontSize:13, color:C.muted, marginBottom:6 }}>🛒 สั่งซื้อจริงรวม</div>
-                  <div style={{ fontSize:22, fontWeight:800, color:C.ok }}>฿{fmt(actualTotal)}</div>
-                </div>
-                <div style={{ background:C.card, border:`1px solid ${diff>0?C.err:C.ok}50`, borderRadius:12, padding:"16px 18px" }}>
-                  <div style={{ fontSize:13, color:C.muted, marginBottom:6 }}>⚖️ ผลต่าง (จริง - BOM)</div>
-                  <div style={{ fontSize:22, fontWeight:800, color:diff>0?C.err:diff<0?C.ok:C.muted }}>
-                    {diff>0?"+":""}{fmt(diff)}
-                  </div>
-                  <div style={{ fontSize:13, color:C.muted, marginTop:4 }}>
-                    {diff>0?"⚠️ สั่งซื้อแพงกว่า BOM":diff<0?"✅ สั่งซื้อถูกกว่า BOM":"= เท่ากับ BOM"}
-                  </div>
+                <div style={{ fontSize:13, color:C.muted, marginTop:4 }}>
+                  {diff>0?"⚠️ แพงกว่า BOM":diff<0?"✅ ถูกกว่า BOM":"= เท่ากัน"}
                 </div>
               </div>
-            );
-          })()}
+            </div>
+          );
+        })()}
 
-          {/* Table */}
-          <Card>
-            <div style={{ fontSize:15, fontWeight:700, color:C.text, marginBottom:16 }}>
-              เปรียบรายการ BOM vs สั่งซื้อจริง — {ord.orderNo||ord.id}
+        {/* Table */}
+        <Card>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+            <div style={{ fontSize:15, fontWeight:700, color:C.text }}>เปรียบ BOM vs สั่งซื้อจริง — {ord.orderNo||ord.id}</div>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              {saveMsg && <span style={{ fontSize:13, color:C.ok }}>{saveMsg}</span>}
+              <button style={s.btn()} onClick={saveActual}>💾 บันทึกข้อมูล</button>
             </div>
-            <div style={{ overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...s.th, background:"#0a1a10" }} colSpan={4}>📋 BOM (ต้นทุนมาตรฐาน)</th>
-                    <th style={{ ...s.th, background:"#0a1020" }} colSpan={5}>🛒 สั่งซื้อจริง (กรอกได้)</th>
-                    <th style={{ ...s.th, background:"#1a0a10" }}>⚖️ ผลต่าง</th>
-                  </tr>
-                  <tr>
-                    {["รายการ","ประเภท","จำนวนBOM","ราคา/unit BOM",
-                      "PO No.","Supplier","จำนวนจริง","ราคา/unit จริง","ยอดจริง",
-                      "ต่าง (฿)"].map(h=><th key={h} style={s.th}>{h}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {stockItems.map((item, i) => {
-                    const a        = actualOrders[item.id] || {};
-                    const bomCost  = item.totalCost;
-                    const actQty   = parseFloat(a.qty) || 0;
-                    const actPrice = parseFloat(a.pricePerUnit) || 0;
-                    const actTotal = actQty * actPrice;
-                    const diff     = actTotal > 0 ? actTotal - bomCost : null;
-                    return (
-                      <tr key={i} style={{ background:i%2===0?"transparent":"#060b1640" }}>
-                        {/* BOM columns */}
-                        <td style={s.td}>{item.name}</td>
-                        <td style={s.td}><Tag text={item.type} color={item.type==="Fabric"?C.accent:C.accent2}/></td>
-                        <td style={{ ...s.td, color:C.accent }}>{item.needed} {item.unit}</td>
-                        <td style={s.td}>฿{fmt(item.costEach)} <span style={{ color:C.muted, fontSize:13 }}>(฿{fmt(bomCost)})</span></td>
-                        {/* Actual columns */}
-                        <td style={s.td}>
-                          <input style={{ ...s.input, fontSize:13, padding:"5px 8px", width:100 }}
-                            placeholder="PO-001"
-                            value={a.poNo||""}
-                            onChange={e=>setActualOrders(prev=>({...prev,[item.id]:{...prev[item.id],poNo:e.target.value}}))}
-                          />
-                        </td>
-                        <td style={s.td}>
-                          <input style={{ ...s.input, fontSize:13, padding:"5px 8px", width:120 }}
-                            placeholder="ชื่อ Supplier"
-                            value={a.supplier||""}
-                            onChange={e=>setActualOrders(prev=>({...prev,[item.id]:{...prev[item.id],supplier:e.target.value}}))}
-                          />
-                        </td>
-                        <td style={s.td}>
-                          <input style={{ ...s.input, fontSize:13, padding:"5px 8px", width:80 }}
-                            type="number" placeholder="0"
-                            value={a.qty||""}
-                            onChange={e=>setActualOrders(prev=>({...prev,[item.id]:{...prev[item.id],qty:e.target.value}}))}
-                          />
-                        </td>
-                        <td style={s.td}>
-                          <input style={{ ...s.input, fontSize:13, padding:"5px 8px", width:90 }}
-                            type="number" placeholder="฿0"
-                            value={a.pricePerUnit||""}
-                            onChange={e=>setActualOrders(prev=>({...prev,[item.id]:{...prev[item.id],pricePerUnit:e.target.value}}))}
-                          />
-                        </td>
-                        <td style={{ ...s.td, fontWeight:700, color:C.ok }}>
-                          {actTotal > 0 ? `฿${fmt(actTotal)}` : "—"}
-                        </td>
-                        {/* Diff */}
-                        <td style={{ ...s.td, fontWeight:700, color:diff===null?C.muted:diff>0?C.err:C.ok }}>
-                          {diff===null ? "—" : `${diff>0?"+":""}฿${fmt(diff)}`}
-                          {diff !== null && (
-                            <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>
-                              {diff>0?"แพงกว่า BOM":diff<0?"ถูกกว่า BOM":"เท่ากัน"}
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div style={{ marginTop:12, padding:"10px 14px", background:"#060b16", borderRadius:6, fontSize:13, color:C.muted }}>
-              💡 กรอก PO No., Supplier, จำนวน และราคาจริงเพื่อเปรียบกับ BOM มาตรฐาน
-            </div>
-          </Card>
-        </div>
-      ) : (
+          </div>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", minWidth:950 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...s.th, background:"#0d1a0d" }} colSpan={3}>📋 BOM มาตรฐาน</th>
+                  <th style={{ ...s.th, background:"#0d1020" }} colSpan={5}>🛒 สั่งซื้อจริง</th>
+                  <th style={{ ...s.th, background:"#1a0d10" }}>⚖️ ผลต่าง</th>
+                </tr>
+                <tr>
+                  {["รายการ","จำนวน BOM","ราคา BOM (รวม)",
+                    "PO No.","Supplier","จำนวนจริง","ราคา/unit","ยอดจริง",
+                    "ต่าง (฿)"].map(h=><th key={h} style={s.th}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {stockItems.map((item, i) => {
+                  const a        = currentActual[item.id] || {};
+                  const bomCost  = item.totalCost;
+                  const actQty   = parseFloat(a.qty) || 0;
+                  const actPrice = parseFloat(a.pricePerUnit) || 0;
+                  const actTotal = actQty * actPrice;
+                  const diff     = actTotal > 0 ? actTotal - bomCost : null;
+                  return (
+                    <tr key={i} style={{ background:i%2===0?"transparent":"#060b1640" }}>
+                      <td style={{ ...s.td, fontWeight:600 }}>{item.name}<br/><Tag text={item.type} color={item.type==="Fabric"?C.accent:C.accent2}/></td>
+                      <td style={{ ...s.td, color:C.accent }}>{item.needed} {item.unit}</td>
+                      <td style={s.td}>฿{fmt(item.costEach)}<br/><span style={{ color:C.muted, fontSize:12 }}>฿{fmt(bomCost)}</span></td>
+                      <td style={s.td}>
+                        <input style={{ ...s.input, fontSize:13, padding:"6px 8px" }} placeholder="PO-001"
+                          value={a.poNo||""} onChange={e=>setItemActual(item.id,"poNo",e.target.value)}/>
+                      </td>
+                      <td style={s.td}>
+                        <input style={{ ...s.input, fontSize:13, padding:"6px 8px" }} placeholder="Supplier"
+                          value={a.supplier||""} onChange={e=>setItemActual(item.id,"supplier",e.target.value)}/>
+                      </td>
+                      <td style={s.td}>
+                        <input style={{ ...s.input, fontSize:13, padding:"6px 8px" }} type="number" placeholder="0"
+                          value={a.qty||""} onChange={e=>setItemActual(item.id,"qty",e.target.value)}/>
+                      </td>
+                      <td style={s.td}>
+                        <input style={{ ...s.input, fontSize:13, padding:"6px 8px" }} type="number" placeholder="฿0"
+                          value={a.pricePerUnit||""} onChange={e=>setItemActual(item.id,"pricePerUnit",e.target.value)}/>
+                      </td>
+                      <td style={{ ...s.td, fontWeight:700, color:C.ok }}>
+                        {actTotal > 0 ? `฿${fmt(actTotal)}` : "—"}
+                      </td>
+                      <td style={{ ...s.td, fontWeight:700, fontSize:15, color:diff===null?C.muted:diff>0?C.err:C.ok }}>
+                        {diff===null ? "—" : `${diff>0?"+":""}฿${fmt(diff)}`}
+                        {diff !== null && <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{diff>0?"แพงกว่า BOM":diff<0?"ถูกกว่า BOM":"เท่ากัน"}</div>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ marginTop:12, padding:"10px 14px", background:"#060b16", borderRadius:6, fontSize:13, color:C.muted }}>
+            💡 กรอกข้อมูลแล้วกด <strong style={{color:C.accent}}>💾 บันทึกข้อมูล</strong> เพื่อเก็บรายการสั่งซื้อจริง
+          </div>
+        </Card>
+      </div> : (
         <div style={{ textAlign:"center", padding:48, color:C.muted }}>
           <div style={{ fontSize:32, marginBottom:12 }}>⚖️</div>
           <div>เลือก Order ที่มี Pattern และ BOM ครบถ้วน</div>
         </div>
       )}
     </div>}
-
-    {/* ── BILLS TAB ── */}
-    {activeTab==="bills" && <div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:16 }}>
-        <StatBox label="บิลทั้งหมด" value={data.bills.length+" บิล"} color={C.accent} icon="🧾"/>
-        <StatBox label="จ่ายแล้ว"   value={`฿${(totalPaid/1000).toFixed(0)}K`} color={C.ok} icon="✅"/>
-        <StatBox label="ค้างชำระ"   value={`฿${(totalPend/1000).toFixed(0)}K`} color="#eab308" icon="⏳"/>
-      </div>
-      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-        <button style={s.btn()} onClick={() => { setEditBill({ id:genId("BILL"), invoiceNo:"", date:today(), supplier:"", status:"pending", items:[{ materialName:"", qty:"", unit:"", pricePerUnit:"", totalAmount:"" }] }); setBillModal(true); }}>+ บันทึกบิลใหม่</button>
-      </div>
-      {data.bills.length===0 && <div style={{ textAlign:"center", padding:40, color:C.muted }}>ยังไม่มีบิล</div>}
-      {data.bills.map(bill => {
-        const billTotal = (bill.items||[]).reduce((s,it)=>s+(parseFloat(it.totalAmount)||0),0);
-        return <div key={bill.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16, marginBottom:12 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-            <div>
-              <div style={{ fontWeight:700, color:C.accent, fontSize:26 }}>{bill.invoiceNo||bill.id}</div>
-              <div style={{ fontSize:26, color:C.sub, marginTop:2 }}>🏭 {bill.supplier} · 📅 {bill.date}</div>
-            </div>
-            <div style={{ textAlign:"right" }}>
-              <div style={{ fontSize:26, fontWeight:800, color:C.accent }}>฿{billTotal.toLocaleString()}</div>
-              <Tag text={bill.status==="paid"?"✅ จ่ายแล้ว":bill.status==="partial"?"💛 บางส่วน":"⏳ รอชำระ"} color={bscol(bill.status)}/>
-            </div>
-          </div>
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={() => { setEditBill(bill); setBillModal(true); }} style={{ ...s.btnGhost, padding:"4px 12px", fontSize:17 }}>✏️ แก้ไข</button>
-            <button onClick={() => deleteBill(bill.id)} style={{ ...s.btnGhost, padding:"4px 12px", fontSize:17, color:C.err, borderColor:C.err+"50" }}>🗑 ลบ</button>
-          </div>
-        </div>;
-      })}
-    </div>}
-
-    {/* ── PO TAB ── */}
-    {activeTab==="po" && <div>
-      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-        <button style={s.btn()} onClick={() => { setPoForm({ date:today(), status:"pending" }); setPoModal(true); }}>+ สร้าง PO ใหม่</button>
-      </div>
-      {(data.purchaseOrders||[]).length===0 && <div style={{ textAlign:"center", padding:48, color:C.muted }}>
-        <div style={{ fontSize:32, marginBottom:12 }}>🛒</div>
-        <div>ยังไม่มี Purchase Order</div>
-        <div style={{ fontSize:17, marginTop:6, color:C.muted }}>กด "+ สร้าง PO ใหม่" หรือกด "สร้าง PO" จากหน้า BOM เมื่อสต็อกไม่เพียงพอ</div>
-      </div>}
-      {(data.purchaseOrders||[]).map(po => (
-        <div key={po.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16, marginBottom:12 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-            <div>
-              <div style={{ fontWeight:700, color:C.accent, fontSize:26 }}>{po.id}</div>
-              <div style={{ fontSize:26, color:C.sub, marginTop:2 }}>📦 {po.itemName} · {po.qty} {po.unit} · 🏭 {po.supplier||"—"}</div>
-              <div style={{ fontSize:17, color:C.muted, marginTop:2 }}>📅 {po.date}</div>
-            </div>
-            <Tag text={po.status==="received"?"✅ รับแล้ว":po.status==="pending"?"⏳ รอรับ":"❌ ยกเลิก"} color={po.status==="received"?C.ok:po.status==="pending"?"#eab308":C.err}/>
-          </div>
-          {po.status==="pending" && (
-            <div style={{ marginTop:10, display:"flex", gap:8 }}>
-              <button onClick={() => {
-                const newStock = { ...data.stock };
-                const qty      = parseFloat(po.qty)||0;
-                newStock[po.itemId||""] = (newStock[po.itemId||""]||0) + qty;
-                const newLog = [...(data.stockLog||[]), { id:genId("LOG"), itemId:po.itemId||"", itemName:po.itemName, type:"in", qty, reason:`รับสินค้าจาก PO ${po.id}`, date:today(), balAfter:newStock[po.itemId||""] }];
-                const newPOs = (data.purchaseOrders||[]).map(p => p.id===po.id ? { ...p, status:"received" } : p);
-                setData(d => ({ ...d, stock:newStock, stockLog:newLog, purchaseOrders:newPOs }));
-              }} style={{ ...s.btnSm(C.ok), padding:"5px 14px" }}>✅ รับสินค้าแล้ว</button>
-              <button onClick={() => setData(d=>({...d,purchaseOrders:(d.purchaseOrders||[]).map(p=>p.id===po.id?{...p,status:"cancelled"}:p)}))} style={{ ...s.btnGhost, padding:"4px 12px", fontSize:17, color:C.err, borderColor:C.err+"50" }}>❌ ยกเลิก</button>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>}
-
-    {/* ── COMPARE TAB ── */}
-    {activeTab==="compare" && <div>
-      <Card style={{ marginBottom:14 }}>
-        <div style={{ fontSize:17, color:C.muted, textTransform:"uppercase", letterSpacing:0.5, marginBottom:6 }}>ค้นหาวัตถุดิบเพื่อเปรียบราคาจากบิลซื้อ</div>
-        <input style={s.input} placeholder="พิมพ์ชื่อผ้า / วัตถุดิบ..." value={compareItem} onChange={e=>handleCompare(e.target.value)}/>
-      </Card>
-      {compareItem && cmpResults.length===0 && <div style={{ textAlign:"center", padding:32, color:C.muted }}>ไม่พบ "{compareItem}"</div>}
-      {compareItem && cmpResults.length>0 && <div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:16 }}>
-          {[
-            { label:"💚 ราคาถูกสุด", val:cmpResults[0].pricePerUnit,                               sup:cmpResults[0].supplier, color:C.ok     },
-            { label:"🔴 ราคาแพงสุด", val:cmpResults[cmpResults.length-1].pricePerUnit,             sup:cmpResults[cmpResults.length-1].supplier, color:C.err },
-            { label:"📊 ส่วนต่าง",   val:cmpResults[cmpResults.length-1].pricePerUnit-cmpResults[0].pricePerUnit, sup:cmpResults.length+" บิล", color:C.accent },
-          ].map(r => (
-            <div key={r.label} style={{ background:"#060b16", border:`1px solid ${r.color}40`, borderRadius:10, padding:"12px 14px" }}>
-              <div style={{ fontSize:26, color:C.muted }}>{r.label}</div>
-              <div style={{ fontSize:26, fontWeight:800, color:r.color, marginTop:4 }}>฿{fmt(r.val)}</div>
-              <div style={{ fontSize:17, color:C.muted }}>{r.sup}</div>
-            </div>
-          ))}
-        </div>
-        <Card>
-          {cmpResults.map((r,i) => {
-            const hi  = cmpResults[cmpResults.length-1].pricePerUnit;
-            const pct = hi>0?(r.pricePerUnit/hi)*100:100;
-            const bc  = i===0?C.ok:i===cmpResults.length-1?C.err:C.accent2;
-            return <div key={i} style={{ marginBottom:12 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                <span style={{ fontSize:17, color:C.sub }}>{r.supplier} · {r.date}</span>
-                <span style={{ fontSize:26, fontWeight:700, color:bc }}>฿{fmt(r.pricePerUnit)}</span>
-              </div>
-              <ProgressBar value={pct} max={100} color={bc}/>
-            </div>;
-          })}
-        </Card>
-      </div>}
-      {!compareItem && <div style={{ textAlign:"center", padding:48 }}>
-        <div style={{ fontSize:36, marginBottom:12 }}>⚖️</div>
-        <div style={{ color:C.sub, fontSize:26 }}>พิมพ์ชื่อวัตถุดิบด้านบน</div>
-      </div>}
-    </div>}
-
-    {billModal && editBill && <BillFormModal bill={editBill} onSave={saveBill} onClose={() => { setBillModal(false); setEditBill(null); }} suppliers={data.suppliers}/>}
 
     {/* PO Modal */}
     {poModal && <Modal title="สร้าง Purchase Order" onClose={() => setPoModal(false)}>
@@ -1412,6 +1240,7 @@ function BOMModule({ activeOrderId }) {
     </Modal>}
   </div>;
 }
+
 
 // ════════════════════════════════════════════════════════════════
 // § 12  MODULE: INVENTORY (ENHANCED)
