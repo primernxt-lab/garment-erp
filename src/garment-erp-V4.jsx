@@ -965,6 +965,7 @@ function BOMModule({ activeOrderId }) {
   const [cmpResults,  setCmpResults]  = useState([]);
   const [poModal,     setPoModal]     = useState(false);
   const [poForm,      setPoForm]      = useState({});
+  const [actualOrders, setActualOrders] = useState({}); // { itemId: { poNo, qty, pricePerUnit, supplier } }
 
   useEffect(() => { if (activeOrderId) setSelOrder(activeOrderId); }, [activeOrderId]);
 
@@ -1032,7 +1033,7 @@ function BOMModule({ activeOrderId }) {
 
   return <div>
     <SectionHead title="📦 BOM & ซื้อวัตถุดิบ" sub={`Bill of Materials · บิลซื้อ · เปรียบราคา${pat?` · BOM v${pat.bomVersion||1}`:""}`}/>
-    <TabBar tabs={[["bom","📋 BOM"],["size","📐 ต้นทุนแยกไซส์"],["bills",`🧾 บิล (${data.bills.length})`],["po",`🛒 PO (${(data.purchaseOrders||[]).length})`],["compare","⚖️ เปรียบราคา"]]} active={activeTab} setActive={setActiveTab}/>
+    <TabBar tabs={[["bom","📋 BOM"],["size","📐 ต้นทุนแยกไซส์"],["actual","🛒 สั่งซื้อจริง vs BOM"],["bills",`🧾 บิล (${data.bills.length})`],["po",`🛒 PO (${(data.purchaseOrders||[]).length})`],["compare","⚖️ เปรียบราคา"]]} active={activeTab} setActive={setActiveTab}/>
 
     {/* ── BOM TAB ── */}
     {activeTab==="bom" && <div>
@@ -1134,6 +1135,143 @@ function BOMModule({ activeOrderId }) {
           <div style={{ fontSize:32, marginBottom:12 }}>📐</div>
           <div>เลือก Order ที่มีข้อมูล Size Breakdown</div>
           <div style={{ fontSize:17, color:C.muted, marginTop:6 }}>เช่น: S×100, M×200, L×150</div>
+        </div>
+      )}
+    </div>}
+
+    {/* ── ACTUAL vs BOM TAB ── */}
+    {activeTab==="actual" && <div>
+      <Card style={{ marginBottom:14 }}>
+        <Field label="เลือก Order เพื่อเปรียบ BOM vs สั่งซื้อจริง">
+          <select style={s.select} value={selOrder} onChange={e=>setSelOrder(e.target.value)}>
+            {data.orders.map(o => <option key={o.id} value={o.id}>{o.orderNo||o.id} — {o.customer} ({o.qty} ตัว)</option>)}
+          </select>
+        </Field>
+      </Card>
+
+      {ord && pat && stockItems.length > 0 ? (
+        <div>
+          {/* Summary KPI */}
+          {(() => {
+            const bomTotal   = stockItems.reduce((s,i)=>s+i.totalCost, 0);
+            const actualTotal = stockItems.reduce((s,i)=>{
+              const a = actualOrders[i.id];
+              return s + (a ? (parseFloat(a.qty)||0)*(parseFloat(a.pricePerUnit)||0) : 0);
+            }, 0);
+            const diff = actualTotal - bomTotal;
+            return (
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:16 }}>
+                <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 18px" }}>
+                  <div style={{ fontSize:13, color:C.muted, marginBottom:6 }}>📋 ต้นทุน BOM รวม</div>
+                  <div style={{ fontSize:22, fontWeight:800, color:C.accent }}>฿{fmt(bomTotal)}</div>
+                </div>
+                <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 18px" }}>
+                  <div style={{ fontSize:13, color:C.muted, marginBottom:6 }}>🛒 สั่งซื้อจริงรวม</div>
+                  <div style={{ fontSize:22, fontWeight:800, color:C.ok }}>฿{fmt(actualTotal)}</div>
+                </div>
+                <div style={{ background:C.card, border:`1px solid ${diff>0?C.err:C.ok}50`, borderRadius:12, padding:"16px 18px" }}>
+                  <div style={{ fontSize:13, color:C.muted, marginBottom:6 }}>⚖️ ผลต่าง (จริง - BOM)</div>
+                  <div style={{ fontSize:22, fontWeight:800, color:diff>0?C.err:diff<0?C.ok:C.muted }}>
+                    {diff>0?"+":""}{fmt(diff)}
+                  </div>
+                  <div style={{ fontSize:13, color:C.muted, marginTop:4 }}>
+                    {diff>0?"⚠️ สั่งซื้อแพงกว่า BOM":diff<0?"✅ สั่งซื้อถูกกว่า BOM":"= เท่ากับ BOM"}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Table */}
+          <Card>
+            <div style={{ fontSize:15, fontWeight:700, color:C.text, marginBottom:16 }}>
+              เปรียบรายการ BOM vs สั่งซื้อจริง — {ord.orderNo||ord.id}
+            </div>
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...s.th, background:"#0a1a10" }} colSpan={4}>📋 BOM (ต้นทุนมาตรฐาน)</th>
+                    <th style={{ ...s.th, background:"#0a1020" }} colSpan={5}>🛒 สั่งซื้อจริง (กรอกได้)</th>
+                    <th style={{ ...s.th, background:"#1a0a10" }}>⚖️ ผลต่าง</th>
+                  </tr>
+                  <tr>
+                    {["รายการ","ประเภท","จำนวนBOM","ราคา/unit BOM",
+                      "PO No.","Supplier","จำนวนจริง","ราคา/unit จริง","ยอดจริง",
+                      "ต่าง (฿)"].map(h=><th key={h} style={s.th}>{h}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stockItems.map((item, i) => {
+                    const a        = actualOrders[item.id] || {};
+                    const bomCost  = item.totalCost;
+                    const actQty   = parseFloat(a.qty) || 0;
+                    const actPrice = parseFloat(a.pricePerUnit) || 0;
+                    const actTotal = actQty * actPrice;
+                    const diff     = actTotal > 0 ? actTotal - bomCost : null;
+                    return (
+                      <tr key={i} style={{ background:i%2===0?"transparent":"#060b1640" }}>
+                        {/* BOM columns */}
+                        <td style={s.td}>{item.name}</td>
+                        <td style={s.td}><Tag text={item.type} color={item.type==="Fabric"?C.accent:C.accent2}/></td>
+                        <td style={{ ...s.td, color:C.accent }}>{item.needed} {item.unit}</td>
+                        <td style={s.td}>฿{fmt(item.costEach)} <span style={{ color:C.muted, fontSize:13 }}>(฿{fmt(bomCost)})</span></td>
+                        {/* Actual columns */}
+                        <td style={s.td}>
+                          <input style={{ ...s.input, fontSize:13, padding:"5px 8px", width:100 }}
+                            placeholder="PO-001"
+                            value={a.poNo||""}
+                            onChange={e=>setActualOrders(prev=>({...prev,[item.id]:{...prev[item.id],poNo:e.target.value}}))}
+                          />
+                        </td>
+                        <td style={s.td}>
+                          <input style={{ ...s.input, fontSize:13, padding:"5px 8px", width:120 }}
+                            placeholder="ชื่อ Supplier"
+                            value={a.supplier||""}
+                            onChange={e=>setActualOrders(prev=>({...prev,[item.id]:{...prev[item.id],supplier:e.target.value}}))}
+                          />
+                        </td>
+                        <td style={s.td}>
+                          <input style={{ ...s.input, fontSize:13, padding:"5px 8px", width:80 }}
+                            type="number" placeholder="0"
+                            value={a.qty||""}
+                            onChange={e=>setActualOrders(prev=>({...prev,[item.id]:{...prev[item.id],qty:e.target.value}}))}
+                          />
+                        </td>
+                        <td style={s.td}>
+                          <input style={{ ...s.input, fontSize:13, padding:"5px 8px", width:90 }}
+                            type="number" placeholder="฿0"
+                            value={a.pricePerUnit||""}
+                            onChange={e=>setActualOrders(prev=>({...prev,[item.id]:{...prev[item.id],pricePerUnit:e.target.value}}))}
+                          />
+                        </td>
+                        <td style={{ ...s.td, fontWeight:700, color:C.ok }}>
+                          {actTotal > 0 ? `฿${fmt(actTotal)}` : "—"}
+                        </td>
+                        {/* Diff */}
+                        <td style={{ ...s.td, fontWeight:700, color:diff===null?C.muted:diff>0?C.err:C.ok }}>
+                          {diff===null ? "—" : `${diff>0?"+":""}฿${fmt(diff)}`}
+                          {diff !== null && (
+                            <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>
+                              {diff>0?"แพงกว่า BOM":diff<0?"ถูกกว่า BOM":"เท่ากัน"}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ marginTop:12, padding:"10px 14px", background:"#060b16", borderRadius:6, fontSize:13, color:C.muted }}>
+              💡 กรอก PO No., Supplier, จำนวน และราคาจริงเพื่อเปรียบกับ BOM มาตรฐาน
+            </div>
+          </Card>
+        </div>
+      ) : (
+        <div style={{ textAlign:"center", padding:48, color:C.muted }}>
+          <div style={{ fontSize:32, marginBottom:12 }}>⚖️</div>
+          <div>เลือก Order ที่มี Pattern และ BOM ครบถ้วน</div>
         </div>
       )}
     </div>}
