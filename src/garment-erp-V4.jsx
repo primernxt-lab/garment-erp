@@ -280,7 +280,7 @@ function SectionHead({ title, sub, action }) {
 }
 function Modal({ title, onClose, children, wide }) {
   return <div style={{ position:"fixed", inset:0, background:"#000d", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:20, overflowY:"auto" }}>
-    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, width:"100%", maxWidth:wide?760:560, maxHeight:"92vh", overflowY:"auto" }}>
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, width:"100%", maxWidth:wide?1000:680, maxHeight:"92vh", overflowY:"auto" }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"16px 20px", borderBottom:`1px solid ${C.border}`, position:"sticky", top:0, background:C.card }}>
         <span style={{ fontWeight:700, color:C.accent, fontSize:26 }}>{title}</span>
         <button onClick={onClose} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontSize:26, lineHeight:1 }}>×</button>
@@ -677,9 +677,11 @@ const BASIC_COLORS = [
   { name:"กรม",   hex:"#1e3a5f" },
 ];
 
-const EMB_POSITIONS = ["หน้าซ้าย","หน้าขวา","หน้ากลาง","หลังซ้าย","หลังขวา","หลังกลาง","แขนซ้าย","แขนขวา","คอ","ชายเสื้อ"];
+const EMB_POSITIONS = ["อกซ้าย","อกขวา","กลางหน้าอก","หลัง","แขนซ้าย","แขนขวา","ชายเสื้อ","คอ","หน้าซ้ายล่าง","หน้าขวาล่าง"];
 
-const EMPTY_SLOT = () => ({ id:Date.now()+Math.random(), patternId:"", printTypeId:"PT001", qty:"", colorNote:"", colorHex:"", sizeBreakdown:{S:"",M:"",L:"",XL:"",XXL:""}, slotNote:"", embPosition:"", imagePreview:null });
+const ALL_SIZES = ["3XS","2XS","XS","S","M","L","XL","2XL","3XL","4XL","5XL","6XL","7XL","8XL","9XL"];
+
+const EMPTY_SLOT = () => ({ id:Date.now()+Math.random(), patternId:"", printTypeId:"PT001", qty:"", colorNote:"", colorHex:"", sizeBreakdown:{}, slotNote:"", embPositions:[], imagePreview:null });
 
 const ORDER_STATUSES = ["draft","confirmed","production","qc","ready","shipped","done","cancelled"];
 const ORDER_STATUS_COLOR = { draft:C.muted, confirmed:C.accent2, production:C.ok, qc:C.cyan, ready:C.purple, shipped:"#f59e0b", done:"#22c55e", cancelled:C.err };
@@ -833,108 +835,130 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
           <button onClick={() => setSlots(sl => [...sl, EMPTY_SLOT()])} style={{ ...s.btnSm(), padding:"6px 14px" }}>+ เพิ่มรายการ</button>
         </div>
         {slots.map((slot,i) => {
-          const selPat = data.patterns.find(p=>p.id===slot.patternId);
-          const sizeSet = selPat?.sizeSet ? selPat.sizeSet.split(",").map(s=>s.trim()) : ["S","M","L","XL","XXL"];
-          const sbObj = typeof slot.sizeBreakdown === "object" ? slot.sizeBreakdown : {};
+          const selPat  = data.patterns.find(p=>p.id===slot.patternId);
+          const sizeSet = selPat?.sizeSet
+            ? selPat.sizeSet.split(",").map(x=>x.trim()).filter(Boolean)
+            : ["S","M","L","XL","XXL"];
+          const sbObj   = typeof slot.sizeBreakdown==="object" ? slot.sizeBreakdown : {};
           const sbTotal = sizeSet.reduce((s,sz)=>s+(parseInt(sbObj[sz])||0), 0);
+          const embArr  = Array.isArray(slot.embPositions) ? slot.embPositions : (slot.embPosition?[slot.embPosition]:[]);
+          const toggleEmb = (pos) => {
+            const cur = Array.isArray(slot.embPositions) ? slot.embPositions : [];
+            const next = cur.includes(pos) ? cur.filter(x=>x!==pos) : [...cur, pos];
+            updateSlot(i,"embPositions",next);
+          };
           return (
-          <div key={slot.id||i} style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:12, padding:16, marginBottom:12 }}>
+          <div key={slot.id||i} style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:12, padding:18, marginBottom:14 }}>
             {/* Header */}
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:14 }}>
               <span style={{ fontSize:15, fontWeight:700, color:C.accent }}>🧩 รายการที่ {i+1}</span>
-              {i>0 && <button onClick={() => setSlots(sl=>sl.filter((_,x)=>x!==i))} style={{ background:"none", border:`1px solid ${C.err}40`, color:C.err, borderRadius:4, padding:"2px 8px", fontSize:13, cursor:"pointer" }}>× ลบ</button>}
+              {i>0 && <button onClick={() => setSlots(sl=>sl.filter((_,x)=>x!==i))} style={{ background:"none", border:`1px solid ${C.err}40`, color:C.err, borderRadius:4, padding:"3px 10px", fontSize:13, cursor:"pointer" }}>× ลบ</button>}
             </div>
 
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-              {/* LEFT: Pattern + Print + EMB */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+              {/* LEFT */}
               <div>
                 <div style={{ fontSize:13, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>Pattern / Style</div>
-                <select style={{ ...s.select, marginBottom:10 }} value={slot.patternId} onChange={e=>updateSlot(i,"patternId",e.target.value)}>
-                  <option value="">— เลือก —</option>
+                <select style={{ ...s.select, marginBottom:12 }} value={slot.patternId} onChange={e=>updateSlot(i,"patternId",e.target.value)}>
+                  <option value="">— เลือก Pattern —</option>
                   {data.patterns.map(p => <option key={p.id} value={p.id}>{p.styleCode||p.id} — {p.name}</option>)}
                 </select>
 
-                <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>จำนวนรวม</div>
-                    <input style={{ ...s.input, background:C.card, fontWeight:700, color:C.accent }} type="number" value={sbTotal||slot.qty||""} readOnly placeholder="รวมจากไซส์"/>
-                  </div>
-                </div>
-
                 <div style={{ fontSize:13, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>Print / EMB</div>
-                <select style={{ ...s.select, marginBottom:8 }} value={slot.printTypeId} onChange={e=>updateSlot(i,"printTypeId",e.target.value)}>
+                <select style={{ ...s.select, marginBottom:10 }} value={slot.printTypeId} onChange={e=>updateSlot(i,"printTypeId",e.target.value)}>
                   {data.printTypes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
 
-                {slot.printTypeId !== "PT001" && (
-                  <div>
-                    <div style={{ fontSize:13, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>ตำแหน่ง EMB/Screen</div>
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:8 }}>
-                      {EMB_POSITIONS.map(pos => (
-                        <button key={pos} onClick={() => updateSlot(i,"embPosition",pos)}
-                          style={{ padding:"4px 10px", borderRadius:6, border:`1px solid ${slot.embPosition===pos?C.accent:C.border}`, background:slot.embPosition===pos?C.accent+"20":"transparent", color:slot.embPosition===pos?C.accent:C.muted, cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>
-                          {pos}
-                        </button>
-                      ))}
-                    </div>
-                    {slot.embPosition && <div style={{ fontSize:13, color:C.accent }}>📍 ตำแหน่ง: <strong>{slot.embPosition}</strong></div>}
+                {/* EMB Position */}
+                {slot.printTypeId !== "PT001" && <div>
+                  <div style={{ fontSize:13, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>📍 ตำแหน่ง EMB/Screen (เลือกได้หลายจุด)</div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:4, maxHeight:220, overflowY:"auto", border:`1px solid ${C.border}`, borderRadius:8, padding:8 }}>
+                    {EMB_POSITIONS.map(pos => (
+                      <label key={pos} style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", padding:"5px 8px", borderRadius:6, background:embArr.includes(pos)?C.accent+"20":"transparent", border:`1px solid ${embArr.includes(pos)?C.accent:C.border}` }}>
+                        <input type="checkbox" checked={embArr.includes(pos)} onChange={()=>toggleEmb(pos)} style={{ accentColor:C.accent, width:15, height:15 }}/>
+                        <span style={{ fontSize:13, color:embArr.includes(pos)?C.accent:C.text }}>{pos}</span>
+                      </label>
+                    ))}
                   </div>
-                )}
+                  {embArr.length > 0 && (
+                    <div style={{ marginTop:6, fontSize:13, color:C.accent }}>
+                      📍 เลือก: {embArr.join(", ")}
+                    </div>
+                  )}
+                </div>}
 
-                <div style={{ fontSize:13, color:C.muted, marginBottom:4, marginTop:8, textTransform:"uppercase" }}>📝 หมายเหตุ</div>
-                <input style={s.input} value={slot.slotNote||""} onChange={e=>updateSlot(i,"slotNote",e.target.value)} placeholder="รายละเอียดพิเศษ..."/>
+                <div style={{ fontSize:13, color:C.muted, marginBottom:4, marginTop:10, textTransform:"uppercase" }}>📝 หมายเหตุ</div>
+                <textarea style={{ ...s.input, height:70, resize:"vertical" }} value={slot.slotNote||""} onChange={e=>updateSlot(i,"slotNote",e.target.value)} placeholder="รายละเอียดพิเศษ..."/>
               </div>
 
-              {/* RIGHT: Color + Size + Image */}
+              {/* RIGHT */}
               <div>
                 {/* Color */}
-                <div style={{ fontSize:13, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>สีสินค้า</div>
+                <div style={{ fontSize:13, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>🎨 สีสินค้า</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:8 }}>
                   {BASIC_COLORS.map(c => (
-                    <button key={c.name} onClick={() => { updateSlot(i,"colorNote",c.name); updateSlot(i,"colorHex",c.hex); }}
-                      style={{ width:32, height:32, borderRadius:"50%", border:`3px solid ${slot.colorHex===c.hex?C.accent:C.border}`, background:c.hex, cursor:"pointer", title:c.name }}>
+                    <button key={c.name} title={c.name} onClick={() => { updateSlot(i,"colorNote",c.name); updateSlot(i,"colorHex",c.hex); }}
+                      style={{ width:30, height:30, borderRadius:"50%", border:`3px solid ${slot.colorHex===c.hex?C.accent:"transparent"}`, background:c.hex, cursor:"pointer", boxShadow:slot.colorHex===c.hex?`0 0 0 2px ${C.accent}`:"none" }}>
                     </button>
                   ))}
                 </div>
-                <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
-                  {slot.colorHex && <div style={{ width:20, height:20, borderRadius:4, background:slot.colorHex, border:`1px solid ${C.border}` }}/>}
+                <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:12 }}>
+                  {slot.colorHex && <div style={{ width:22, height:22, borderRadius:4, background:slot.colorHex, border:`1px solid ${C.border}`, flexShrink:0 }}/>}
                   <input style={{ ...s.input, flex:1 }} placeholder="หรือพิมพ์ชื่อสี..." value={slot.colorNote||""} onChange={e=>updateSlot(i,"colorNote",e.target.value)}/>
                 </div>
 
                 {/* Size Breakdown */}
-                <div style={{ fontSize:13, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>Size Breakdown</div>
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:6, marginBottom:10 }}>
-                  {sizeSet.map(sz => (
-                    <div key={sz}>
-                      <div style={{ fontSize:12, color:C.accent, textAlign:"center", marginBottom:3 }}>{sz}</div>
-                      <input style={{ ...s.input, textAlign:"center", padding:"6px 4px" }}
-                        type="number" placeholder="0"
-                        value={sbObj[sz]||""}
-                        onChange={e => {
-                          const newSb = { ...sbObj, [sz]: e.target.value };
-                          const total = sizeSet.reduce((s,k)=>s+(parseInt(newSb[k])||0),0);
-                          updateSlot(i,"sizeBreakdown",newSb);
-                          updateSlot(i,"qty",String(total));
-                        }}
-                      />
-                    </div>
-                  ))}
+                <div style={{ fontSize:13, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>
+                  📐 Size Breakdown
+                  {sbTotal > 0 && <span style={{ color:C.accent, marginLeft:8 }}>รวม {sbTotal} ตัว</span>}
                 </div>
-                {sbTotal > 0 && (
-                  <div style={{ fontSize:13, color:C.muted, marginBottom:10 }}>
-                    รวม: <strong style={{ color:C.accent }}>{sbTotal} ตัว</strong>
-                    {" — "}
-                    {sizeSet.filter(sz=>sbObj[sz]>0).map(sz=>`${sz}×${sbObj[sz]}`).join(", ")}
+
+                {/* Size selector — เลือก sizes ที่ต้องการก่อน */}
+                <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:8 }}>
+                  {ALL_SIZES.map(sz => {
+                    const active = sizeSet.includes(sz) || sbObj[sz];
+                    return (
+                      <button key={sz}
+                        onClick={() => {
+                          const cur = typeof slot.sizeBreakdown==="object" ? {...slot.sizeBreakdown} : {};
+                          if (cur[sz] !== undefined) { delete cur[sz]; } else { cur[sz] = ""; }
+                          updateSlot(i,"sizeBreakdown",cur);
+                        }}
+                        style={{ padding:"3px 8px", borderRadius:5, border:`1px solid ${sbObj[sz]!==undefined?C.accent:C.border}`, background:sbObj[sz]!==undefined?C.accent+"20":"transparent", color:sbObj[sz]!==undefined?C.accent:C.muted, cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>
+                        {sz}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Size inputs */}
+                {Object.keys(sbObj).length > 0 && (
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, marginBottom:8 }}>
+                    {Object.keys(sbObj).map(sz => (
+                      <div key={sz}>
+                        <div style={{ fontSize:12, color:C.accent, textAlign:"center", marginBottom:3, fontWeight:700 }}>{sz}</div>
+                        <input style={{ ...s.input, textAlign:"center", padding:"6px 4px" }}
+                          type="number" placeholder="0" min="0"
+                          value={sbObj[sz]||""}
+                          onChange={e => {
+                            const newSb = { ...sbObj, [sz]: e.target.value };
+                            const total = Object.values(newSb).reduce((s,v)=>s+(parseInt(v)||0),0);
+                            updateSlot(i,"sizeBreakdown",newSb);
+                            updateSlot(i,"qty",String(total));
+                          }}
+                        />
+                      </div>
+                    ))}
                   </div>
                 )}
 
                 {/* Image Upload */}
                 <div style={{ fontSize:13, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>📷 รูปสินค้า</div>
                 <label style={{ cursor:"pointer", display:"block" }}>
-                  <div style={{ width:"100%", height:100, borderRadius:8, border:`2px dashed ${slot.imagePreview?C.accent:C.border}`, background:"#060b16", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+                  <div style={{ width:"100%", height:90, borderRadius:8, border:`2px dashed ${slot.imagePreview?C.accent:C.border}`, background:"#060b16", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
                     {slot.imagePreview
                       ? <img src={slot.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
-                      : <div style={{ textAlign:"center", color:C.muted }}><div style={{ fontSize:24 }}>📷</div><div style={{ fontSize:12 }}>คลิกเพื่ออัปโหลด</div></div>
+                      : <div style={{ textAlign:"center", color:C.muted }}><div style={{ fontSize:22 }}>📷</div><div style={{ fontSize:12 }}>คลิกอัปโหลด</div></div>
                     }
                   </div>
                   <input type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
