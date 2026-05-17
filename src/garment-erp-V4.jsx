@@ -664,7 +664,22 @@ function MasterModule() {
 // New: orderNo auto-gen, customerAddress, totalAmount,
 //      priority, deliveryChannel, status timeline
 // ════════════════════════════════════════════════════════════════
-const EMPTY_SLOT = () => ({ id:Date.now()+Math.random(), patternId:"", printTypeId:"PT001", qty:"", colorNote:"", sizeBreakdown:"", slotNote:"" });
+const BASIC_COLORS = [
+  { name:"ขาว",   hex:"#FFFFFF" },
+  { name:"ดำ",    hex:"#1a1a1a" },
+  { name:"แดง",   hex:"#ef4444" },
+  { name:"น้ำเงิน", hex:"#3b82f6" },
+  { name:"เหลือง", hex:"#eab308" },
+  { name:"เขียว", hex:"#10b981" },
+  { name:"ส้ม",   hex:"#f97316" },
+  { name:"ชมพู",  hex:"#ec4899" },
+  { name:"เทา",   hex:"#6b7280" },
+  { name:"กรม",   hex:"#1e3a5f" },
+];
+
+const EMB_POSITIONS = ["หน้าซ้าย","หน้าขวา","หน้ากลาง","หลังซ้าย","หลังขวา","หลังกลาง","แขนซ้าย","แขนขวา","คอ","ชายเสื้อ"];
+
+const EMPTY_SLOT = () => ({ id:Date.now()+Math.random(), patternId:"", printTypeId:"PT001", qty:"", colorNote:"", colorHex:"", sizeBreakdown:{S:"",M:"",L:"",XL:"",XXL:""}, slotNote:"", embPosition:"", imagePreview:null });
 
 const ORDER_STATUSES = ["draft","confirmed","production","qc","ready","shipped","done","cancelled"];
 const ORDER_STATUS_COLOR = { draft:C.muted, confirmed:C.accent2, production:C.ok, qc:C.cyan, ready:C.purple, shipped:"#f59e0b", done:"#22c55e", cancelled:C.err };
@@ -814,48 +829,127 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
 
       {tab==="slots" && <div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-          <div style={{ fontSize:26, color:C.sub }}>Qty รวม: <strong style={{ color:C.accent, fontSize:17 }}>{totalQty.toLocaleString()} ตัว</strong></div>
+          <div style={{ fontSize:15, color:C.sub }}>Qty รวม: <strong style={{ color:C.accent, fontSize:18 }}>{totalQty.toLocaleString()} ตัว</strong></div>
           <button onClick={() => setSlots(sl => [...sl, EMPTY_SLOT()])} style={{ ...s.btnSm(), padding:"6px 14px" }}>+ เพิ่มรายการ</button>
         </div>
-        {slots.map((slot,i) => (
-          <div key={slot.id||i} style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:10, padding:14, marginBottom:10 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
-              <span style={{ fontSize:17, fontWeight:700, color:C.accent }}>🧩 รายการที่ {i+1}</span>
-              {i>0 && <button onClick={() => setSlots(sl=>sl.filter((_,x)=>x!==i))} style={{ background:"none", border:`1px solid ${C.err}40`, color:C.err, borderRadius:4, padding:"2px 8px", fontSize:17, cursor:"pointer" }}>× ลบ</button>}
+        {slots.map((slot,i) => {
+          const selPat = data.patterns.find(p=>p.id===slot.patternId);
+          const sizeSet = selPat?.sizeSet ? selPat.sizeSet.split(",").map(s=>s.trim()) : ["S","M","L","XL","XXL"];
+          const sbObj = typeof slot.sizeBreakdown === "object" ? slot.sizeBreakdown : {};
+          const sbTotal = sizeSet.reduce((s,sz)=>s+(parseInt(sbObj[sz])||0), 0);
+          return (
+          <div key={slot.id||i} style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:12, padding:16, marginBottom:12 }}>
+            {/* Header */}
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
+              <span style={{ fontSize:15, fontWeight:700, color:C.accent }}>🧩 รายการที่ {i+1}</span>
+              {i>0 && <button onClick={() => setSlots(sl=>sl.filter((_,x)=>x!==i))} style={{ background:"none", border:`1px solid ${C.err}40`, color:C.err, borderRadius:4, padding:"2px 8px", fontSize:13, cursor:"pointer" }}>× ลบ</button>}
             </div>
-            <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-              <div style={{ flex:2, minWidth:150 }}>
-                <div style={{ fontSize:17, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>Pattern / Style</div>
-                <select style={s.select} value={slot.patternId} onChange={e=>updateSlot(i,"patternId",e.target.value)}>
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              {/* LEFT: Pattern + Print + EMB */}
+              <div>
+                <div style={{ fontSize:13, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>Pattern / Style</div>
+                <select style={{ ...s.select, marginBottom:10 }} value={slot.patternId} onChange={e=>updateSlot(i,"patternId",e.target.value)}>
                   <option value="">— เลือก —</option>
                   {data.patterns.map(p => <option key={p.id} value={p.id}>{p.styleCode||p.id} — {p.name}</option>)}
                 </select>
-              </div>
-              <div style={{ flex:1, minWidth:80 }}>
-                <div style={{ fontSize:17, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>จำนวน</div>
-                <input style={s.input} type="number" value={slot.qty} onChange={e=>updateSlot(i,"qty",e.target.value)}/>
-              </div>
-              <div style={{ flex:1, minWidth:120 }}>
-                <div style={{ fontSize:17, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>Print/EMB</div>
-                <select style={s.select} value={slot.printTypeId} onChange={e=>updateSlot(i,"printTypeId",e.target.value)}>
+
+                <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>จำนวนรวม</div>
+                    <input style={{ ...s.input, background:C.card, fontWeight:700, color:C.accent }} type="number" value={sbTotal||slot.qty||""} readOnly placeholder="รวมจากไซส์"/>
+                  </div>
+                </div>
+
+                <div style={{ fontSize:13, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>Print / EMB</div>
+                <select style={{ ...s.select, marginBottom:8 }} value={slot.printTypeId} onChange={e=>updateSlot(i,"printTypeId",e.target.value)}>
                   {data.printTypes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
+
+                {slot.printTypeId !== "PT001" && (
+                  <div>
+                    <div style={{ fontSize:13, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>ตำแหน่ง EMB/Screen</div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:8 }}>
+                      {EMB_POSITIONS.map(pos => (
+                        <button key={pos} onClick={() => updateSlot(i,"embPosition",pos)}
+                          style={{ padding:"4px 10px", borderRadius:6, border:`1px solid ${slot.embPosition===pos?C.accent:C.border}`, background:slot.embPosition===pos?C.accent+"20":"transparent", color:slot.embPosition===pos?C.accent:C.muted, cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>
+                          {pos}
+                        </button>
+                      ))}
+                    </div>
+                    {slot.embPosition && <div style={{ fontSize:13, color:C.accent }}>📍 ตำแหน่ง: <strong>{slot.embPosition}</strong></div>}
+                  </div>
+                )}
+
+                <div style={{ fontSize:13, color:C.muted, marginBottom:4, marginTop:8, textTransform:"uppercase" }}>📝 หมายเหตุ</div>
+                <input style={s.input} value={slot.slotNote||""} onChange={e=>updateSlot(i,"slotNote",e.target.value)} placeholder="รายละเอียดพิเศษ..."/>
               </div>
-              <div style={{ flex:1, minWidth:100 }}>
-                <div style={{ fontSize:17, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>สี</div>
-                <input style={s.input} value={slot.colorNote} onChange={e=>updateSlot(i,"colorNote",e.target.value)}/>
-              </div>
-              <div style={{ flex:"1 1 100%" }}>
-                <div style={{ fontSize:17, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>ไซส์ Breakdown (ตาม Size Set)</div>
-                <input style={s.input} placeholder="S×10, M×20, L×10, XL×5" value={slot.sizeBreakdown} onChange={e=>updateSlot(i,"sizeBreakdown",e.target.value)}/>
-              </div>
-              <div style={{ flex:"1 1 100%" }}>
-                <div style={{ fontSize:17, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>📝 หมายเหตุ</div>
-                <input style={s.input} value={slot.slotNote} onChange={e=>updateSlot(i,"slotNote",e.target.value)}/>
+
+              {/* RIGHT: Color + Size + Image */}
+              <div>
+                {/* Color */}
+                <div style={{ fontSize:13, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>สีสินค้า</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:8 }}>
+                  {BASIC_COLORS.map(c => (
+                    <button key={c.name} onClick={() => { updateSlot(i,"colorNote",c.name); updateSlot(i,"colorHex",c.hex); }}
+                      style={{ width:32, height:32, borderRadius:"50%", border:`3px solid ${slot.colorHex===c.hex?C.accent:C.border}`, background:c.hex, cursor:"pointer", title:c.name }}>
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
+                  {slot.colorHex && <div style={{ width:20, height:20, borderRadius:4, background:slot.colorHex, border:`1px solid ${C.border}` }}/>}
+                  <input style={{ ...s.input, flex:1 }} placeholder="หรือพิมพ์ชื่อสี..." value={slot.colorNote||""} onChange={e=>updateSlot(i,"colorNote",e.target.value)}/>
+                </div>
+
+                {/* Size Breakdown */}
+                <div style={{ fontSize:13, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>Size Breakdown</div>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:6, marginBottom:10 }}>
+                  {sizeSet.map(sz => (
+                    <div key={sz}>
+                      <div style={{ fontSize:12, color:C.accent, textAlign:"center", marginBottom:3 }}>{sz}</div>
+                      <input style={{ ...s.input, textAlign:"center", padding:"6px 4px" }}
+                        type="number" placeholder="0"
+                        value={sbObj[sz]||""}
+                        onChange={e => {
+                          const newSb = { ...sbObj, [sz]: e.target.value };
+                          const total = sizeSet.reduce((s,k)=>s+(parseInt(newSb[k])||0),0);
+                          updateSlot(i,"sizeBreakdown",newSb);
+                          updateSlot(i,"qty",String(total));
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {sbTotal > 0 && (
+                  <div style={{ fontSize:13, color:C.muted, marginBottom:10 }}>
+                    รวม: <strong style={{ color:C.accent }}>{sbTotal} ตัว</strong>
+                    {" — "}
+                    {sizeSet.filter(sz=>sbObj[sz]>0).map(sz=>`${sz}×${sbObj[sz]}`).join(", ")}
+                  </div>
+                )}
+
+                {/* Image Upload */}
+                <div style={{ fontSize:13, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>📷 รูปสินค้า</div>
+                <label style={{ cursor:"pointer", display:"block" }}>
+                  <div style={{ width:"100%", height:100, borderRadius:8, border:`2px dashed ${slot.imagePreview?C.accent:C.border}`, background:"#060b16", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+                    {slot.imagePreview
+                      ? <img src={slot.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+                      : <div style={{ textAlign:"center", color:C.muted }}><div style={{ fontSize:24 }}>📷</div><div style={{ fontSize:12 }}>คลิกเพื่ออัปโหลด</div></div>
+                    }
+                  </div>
+                  <input type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
+                    const file = e.target.files[0]; if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = ev => updateSlot(i,"imagePreview",ev.target.result);
+                    reader.readAsDataURL(file);
+                  }}/>
+                </label>
+                {slot.imagePreview && <button onClick={()=>updateSlot(i,"imagePreview",null)} style={{ ...s.btnGhost, marginTop:6, fontSize:12, padding:"3px 10px", color:C.err, borderColor:C.err+"50" }}>× ลบรูป</button>}
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>}
 
       {tab==="notice" && <div>
@@ -875,26 +969,68 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:16 }}>
         {[["Order No.", viewModal.orderNo||viewModal.id],["ลูกค้า",viewModal.customer],["Qty รวม",(viewModal.qty||0).toLocaleString()+" ตัว"],["มูลค่า","฿"+fmt(viewModal.totalAmount||0)],["Priority",viewModal.priority||"normal"],["Status",viewModal.status]].map(([k,v]) => (
           <div key={k} style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px" }}>
-            <div style={{ fontSize:17, color:C.muted, textTransform:"uppercase" }}>{k}</div>
-            <div style={{ fontSize:17, fontWeight:700, color:C.accent, marginTop:3 }}>{v}</div>
+            <div style={{ fontSize:13, color:C.muted, textTransform:"uppercase" }}>{k}</div>
+            <div style={{ fontSize:15, fontWeight:700, color:C.accent, marginTop:3 }}>{v}</div>
           </div>
         ))}
       </div>
       {viewModal.customerAddress && (
-        <div style={{ padding:"8px 12px", background:"#060b16", borderRadius:8, marginBottom:12, fontSize:26, color:C.sub }}>
+        <div style={{ padding:"8px 12px", background:"#060b16", borderRadius:8, marginBottom:12, fontSize:14, color:C.sub }}>
           📍 {viewModal.customerAddress} · 🚚 {viewModal.deliveryChannel||"—"}
         </div>
       )}
+      {viewModal.specialNotice && (
+        <div style={{ padding:"10px 14px", background:C.err+"12", border:`1px solid ${C.err}30`, borderRadius:8, marginBottom:12, fontSize:14, color:C.text }}>
+          ⚠️ {viewModal.specialNotice}
+        </div>
+      )}
+      <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:10 }}>รายการสินค้า ({(viewModal.slots||[]).length} รายการ)</div>
       {(viewModal.slots||[]).map((slot,i) => {
         const pat = data.patterns.find(p=>p.id===slot.patternId);
-        return <div key={i} style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:10, padding:12, marginBottom:8 }}>
-          <div style={{ display:"flex", justifyContent:"space-between" }}>
-            <span style={{ fontWeight:700, color:C.text }}>{pat?.styleCode ? `[${pat.styleCode}] ` : ""}{pat?.name||"—"}</span>
-            <span style={{ fontWeight:700, color:C.accent }}>{parseInt(slot.qty)||0} ตัว</span>
+        const pt  = data.printTypes.find(p=>p.id===slot.printTypeId);
+        const sbObj = typeof slot.sizeBreakdown==="object" ? slot.sizeBreakdown : {};
+        const sbKeys = Object.keys(sbObj).filter(k=>parseInt(sbObj[k])>0);
+        return <div key={i} style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:12, padding:14, marginBottom:10 }}>
+          <div style={{ display:"flex", gap:12 }}>
+            {/* Image */}
+            {slot.imagePreview && (
+              <img src={slot.imagePreview} alt="" style={{ width:80, height:80, objectFit:"cover", borderRadius:8, border:`1px solid ${C.border}`, flexShrink:0 }}/>
+            )}
+            <div style={{ flex:1 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                <span style={{ fontWeight:700, color:C.text, fontSize:15 }}>{pat?.styleCode?`[${pat.styleCode}] `:""}{pat?.name||"—"}</span>
+                <span style={{ fontWeight:700, color:C.accent, fontSize:15 }}>{parseInt(slot.qty)||0} ตัว</span>
+              </div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
+                {/* Color */}
+                {slot.colorNote && (
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    {slot.colorHex && <div style={{ width:16, height:16, borderRadius:4, background:slot.colorHex, border:`1px solid ${C.border}` }}/>}
+                    <span style={{ fontSize:13, color:C.sub }}>สี: <strong style={{color:C.text}}>{slot.colorNote}</strong></span>
+                  </div>
+                )}
+                {/* Print/EMB */}
+                {pt && pt.name!=="None" && (
+                  <span style={{ fontSize:13, color:C.sub }}>🖨 {pt.name}{slot.embPosition?` @ ${slot.embPosition}`:""}</span>
+                )}
+              </div>
+              {/* Size Breakdown */}
+              {sbKeys.length > 0 && (
+                <div style={{ marginTop:8 }}>
+                  <div style={{ fontSize:13, color:C.muted, marginBottom:4 }}>Size Breakdown:</div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                    {sbKeys.map(sz => (
+                      <div key={sz} style={{ background:C.accent+"20", border:`1px solid ${C.accent}40`, borderRadius:6, padding:"3px 10px", fontSize:13 }}>
+                        <span style={{ color:C.accent, fontWeight:700 }}>{sz}</span>
+                        <span style={{ color:C.text }}> × {sbObj[sz]}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {slot.slotNote && <div style={{ fontSize:13, color:C.accent, marginTop:6 }}>📝 {slot.slotNote}</div>}
+            </div>
           </div>
-          {slot.colorNote     && <div style={{ fontSize:17, color:C.sub,   marginTop:4 }}>สี: {slot.colorNote}</div>}
-          {slot.sizeBreakdown && <div style={{ fontSize:17, color:C.muted              }}>ไซส์: {slot.sizeBreakdown}</div>}
-          {slot.slotNote      && <div style={{ fontSize:17, color:C.accent, marginTop:4 }}>📝 {slot.slotNote}</div>}
         </div>;
       })}
     </Modal>}
