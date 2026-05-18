@@ -447,27 +447,43 @@ function PatternMaster({ data, setData }) {
       </table>
     </div>
     {modal && <Modal title={form.id?"แก้ไข Pattern":"เพิ่ม Pattern"} onClose={() => setModal(false)} wide>
-      <Row2>
-        <Field label="Style Code" third><input style={s.input} value={form.styleCode||""} onChange={e=>setForm(f=>({...f,styleCode:e.target.value}))} placeholder="STC-001"/></Field>
-        <Field label="ชื่อ Pattern" third><input style={s.input} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></Field>
-        <Field label="BOM Version" third><input style={s.input} type="number" value={form.bomVersion||1} onChange={e=>setForm(f=>({...f,bomVersion:e.target.value}))}/></Field>
-        <Field label="Category" half>
-          <select style={s.select} value={form.category||"Tops"} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>
-            <option>Tops</option><option>Bottoms</option><option>Outerwear</option><option>Accessories</option>
-          </select>
-        </Field>
-        <Field label="Size Set" half><input style={s.input} value={form.sizeSet||""} onChange={e=>setForm(f=>({...f,sizeSet:e.target.value}))} placeholder="S,M,L,XL"/></Field>
-        <Field label="Fabric" half>
-          <select style={s.select} value={form.fabricId||""} onChange={e=>setForm(f=>({...f,fabricId:e.target.value}))}>
-            {data.fabrics.map(f => <option key={f.id} value={f.id}>{f.code||f.id} — {f.name}</option>)}
-          </select>
-        </Field>
-        <Field label="ผ้า/ตัว (m)" half><input style={s.input} type="number" step="0.1" value={form.fabricPerUnit||""} onChange={e=>setForm(f=>({...f,fabricPerUnit:e.target.value}))}/></Field>
-        <Field label="Labor ตัด (฿)" third><input style={s.input} type="number" value={form.laborCut||""} onChange={e=>setForm(f=>({...f,laborCut:e.target.value}))}/></Field>
-        <Field label="Labor เย็บ (฿)" third><input style={s.input} type="number" value={form.laborSew||""} onChange={e=>setForm(f=>({...f,laborSew:e.target.value}))}/></Field>
-        <Field label="Labor QC (฿)" third><input style={s.input} type="number" value={form.laborQC||""} onChange={e=>setForm(f=>({...f,laborQC:e.target.value}))}/></Field>
-        <Field label="รูปภาพ Pattern / ตัวอย่างสินค้า"><ImageUploadBlock value={form.imagePreview||null} onChange={v=>setForm(f=>({...f,imagePreview:v}))} label="" height={110}/></Field>
-      </Row2>
+      <div style={{ display:"grid", gridTemplateColumns:"160px 1fr", gap:16 }}>
+        {/* LEFT: รูปภาพแนวตั้ง */}
+        <div>
+          <div style={{ fontSize:12, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>📷 รูปภาพ</div>
+          <label style={{ cursor:"pointer", display:"block" }}>
+            <div style={{ width:160, height:200, borderRadius:8, border:`2px dashed ${form.imagePreview?C.accent:C.border}`, background:"#060b16", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+              {form.imagePreview
+                ? <img src={form.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"contain" }}/>
+                : <div style={{ textAlign:"center", color:C.muted }}><div style={{ fontSize:28 }}>📷</div><div style={{ fontSize:11, marginTop:4 }}>คลิกอัปโหลด</div></div>
+              }
+            </div>
+            <input type="file" accept="image/*" style={{ display:"none" }} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setForm(fm=>({...fm,imagePreview:ev.target.result}));r.readAsDataURL(f);}}/>
+          </label>
+          {form.imagePreview && <button onClick={()=>setForm(f=>({...f,imagePreview:null}))} style={{ ...s.btnGhost, marginTop:6, fontSize:11, padding:"2px 8px", color:C.err, borderColor:C.err+"50" }}>× ลบรูป</button>}
+        </div>
+        {/* RIGHT: fields */}
+        <Row2>
+          <Field label="Style Code" third><input style={s.input} value={form.styleCode||""} onChange={e=>setForm(f=>({...f,styleCode:e.target.value}))} placeholder="STC-001"/></Field>
+          <Field label="ชื่อ Pattern" third><input style={s.input} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></Field>
+          <Field label="BOM Version" third><input style={s.input} type="number" value={form.bomVersion||1} onChange={e=>setForm(f=>({...f,bomVersion:e.target.value}))}/></Field>
+          <Field label="Category" half>
+            <select style={s.select} value={form.category||"Tops"} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>
+              <option>Tops</option><option>Bottoms</option><option>Outerwear</option><option>Accessories</option>
+            </select>
+          </Field>
+          <Field label="Size Set" half><input style={s.input} value={form.sizeSet||""} onChange={e=>setForm(f=>({...f,sizeSet:e.target.value}))} placeholder="S,M,L,XL"/></Field>
+          <Field label="Fabric" half>
+            <select style={s.select} value={form.fabricId||""} onChange={e=>setForm(f=>({...f,fabricId:e.target.value}))}>
+              {data.fabrics.map(f => <option key={f.id} value={f.id}>{f.code||f.id} — {f.name}</option>)}
+            </select>
+          </Field>
+          <Field label="ผ้า/ตัว (m)" half><input style={s.input} type="number" step="0.1" value={form.fabricPerUnit||""} onChange={e=>setForm(f=>({...f,fabricPerUnit:e.target.value}))}/></Field>
+          <Field label="Labor ตัด (฿)" third><input style={s.input} type="number" value={form.laborCut||""} onChange={e=>setForm(f=>({...f,laborCut:e.target.value}))}/></Field>
+          <Field label="Labor เย็บ (฿)" third><input style={s.input} type="number" value={form.laborSew||""} onChange={e=>setForm(f=>({...f,laborSew:e.target.value}))}/></Field>
+          <Field label="Labor QC (฿)" third><input style={s.input} type="number" value={form.laborQC||""} onChange={e=>setForm(f=>({...f,laborQC:e.target.value}))}/></Field>
+        </Row2>
+      </div>
       <div style={{ marginTop:14 }}>
         <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
           <span style={{ fontSize:17, color:C.muted, textTransform:"uppercase" }}>Accessories / Trim</span>
@@ -661,40 +677,84 @@ function MasterModule() {
     </Card>}
 
     {/* ── MODALS ── */}
-    {modal==="fabric" && <Modal title={form.id?"แก้ไข Fabric":"เพิ่ม Fabric"} onClose={() => setModal(null)}>
-      <Row2>
-        <Field label="Code" half><input style={s.input} value={form.code||""} onChange={e=>setForm(f=>({...f,code:e.target.value}))} placeholder="CTJ-180"/></Field>
-        <Field label="ชื่อผ้า" half><input style={s.input} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></Field>
-        <Field label="ประเภท" third><select style={s.select} value={form.type||"Knit"} onChange={e=>setForm(f=>({...f,type:e.target.value}))}><option>Knit</option><option>Woven</option><option>Cotton</option></select></Field>
-        <Field label="สี" third><input style={s.input} value={form.color||""} onChange={e=>setForm(f=>({...f,color:e.target.value}))} placeholder="White"/></Field>
-        <Field label="หน่วย" third><select style={s.select} value={form.unit||"m"} onChange={e=>setForm(f=>({...f,unit:e.target.value}))}><option value="m">เมตร</option><option value="yard">หลา</option><option value="kg">กิโลกรัม</option></select></Field>
-        <Field label="หน้ากว้าง (cm)" third><input style={s.input} type="number" value={form.widthCm||""} onChange={e=>setForm(f=>({...f,widthCm:e.target.value}))}/></Field>
-        <Field label="ราคา/หน่วย (฿)" third><input style={s.input} type="number" value={form.costPerUnit||""} onChange={e=>setForm(f=>({...f,costPerUnit:e.target.value}))}/></Field>
-        <Field label="Min Stock" third><input style={s.input} type="number" value={form.minQty||""} onChange={e=>setForm(f=>({...f,minQty:e.target.value}))} placeholder="จุดสั่งซื้อ"/></Field>
-        <Field label="Supplier"><select style={s.select} value={form.supplier||""} onChange={e=>setForm(f=>({...f,supplier:e.target.value}))}>{data.suppliers.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
-        <Field label="รูปภาพผ้า"><ImageUploadBlock value={form.imagePreview||null} onChange={v=>setForm(f=>({...f,imagePreview:v}))} label="" height={110}/></Field>
-      </Row2>
+    {modal==="fabric" && <Modal title={form.id?"แก้ไข Fabric":"เพิ่ม Fabric"} onClose={() => setModal(null)} wide>
+      <div style={{ display:"grid", gridTemplateColumns:"160px 1fr", gap:16 }}>
+        {/* LEFT: รูปภาพแนวตั้ง ซ้ายบน */}
+        <div>
+          <div style={{ fontSize:12, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>📷 รูปภาพผ้า</div>
+          <label style={{ cursor:"pointer", display:"block" }}>
+            <div style={{ width:160, height:200, borderRadius:8, border:`2px dashed ${form.imagePreview?C.accent:C.border}`, background:"#060b16", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+              {form.imagePreview
+                ? <img src={form.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"contain" }}/>
+                : <div style={{ textAlign:"center", color:C.muted }}><div style={{ fontSize:28 }}>📷</div><div style={{ fontSize:11, marginTop:4 }}>คลิกอัปโหลด</div></div>
+              }
+            </div>
+            <input type="file" accept="image/*" style={{ display:"none" }} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setForm(fm=>({...fm,imagePreview:ev.target.result}));r.readAsDataURL(f);}}/>
+          </label>
+          {form.imagePreview && <button onClick={()=>setForm(f=>({...f,imagePreview:null}))} style={{ ...s.btnGhost, marginTop:6, fontSize:11, padding:"2px 8px", color:C.err, borderColor:C.err+"50" }}>× ลบรูป</button>}
+        </div>
+        {/* RIGHT: fields */}
+        <Row2>
+          <Field label="Code" half><input style={s.input} value={form.code||""} onChange={e=>setForm(f=>({...f,code:e.target.value}))} placeholder="CTJ-180"/></Field>
+          <Field label="ชื่อผ้า" half><input style={s.input} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></Field>
+          <Field label="ประเภท" third><select style={s.select} value={form.type||"Knit"} onChange={e=>setForm(f=>({...f,type:e.target.value}))}><option>Knit</option><option>Woven</option><option>Cotton</option></select></Field>
+          <Field label="สี" third><input style={s.input} value={form.color||""} onChange={e=>setForm(f=>({...f,color:e.target.value}))} placeholder="White"/></Field>
+          <Field label="หน่วย" third><select style={s.select} value={form.unit||"m"} onChange={e=>setForm(f=>({...f,unit:e.target.value}))}><option value="m">เมตร</option><option value="yard">หลา</option><option value="kg">กิโลกรัม</option></select></Field>
+          <Field label="หน้ากว้าง (cm)" third><input style={s.input} type="number" value={form.widthCm||""} onChange={e=>setForm(f=>({...f,widthCm:e.target.value}))}/></Field>
+          <Field label="ราคา/หน่วย (฿)" third><input style={s.input} type="number" value={form.costPerUnit||""} onChange={e=>setForm(f=>({...f,costPerUnit:e.target.value}))}/></Field>
+          <Field label="Min Stock" third><input style={s.input} type="number" value={form.minQty||""} onChange={e=>setForm(f=>({...f,minQty:e.target.value}))} placeholder="จุดสั่งซื้อ"/></Field>
+          <Field label="Supplier"><select style={s.select} value={form.supplier||""} onChange={e=>setForm(f=>({...f,supplier:e.target.value}))}>{data.suppliers.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+        </Row2>
+      </div>
       <div style={{ display:"flex", gap:8, marginTop:16 }}><button style={s.btn()} onClick={save}>{t("save")}</button><button style={s.btnGhost} onClick={() => setModal(null)}>{t("cancel")}</button></div>
     </Modal>}
 
-    {modal==="acc" && <Modal title={form.id?"แก้ไข Accessories":"เพิ่ม Accessories"} onClose={() => setModal(null)}>
-      <Row2>
-        <Field label="ชื่อ"><input style={s.input} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></Field>
-        <Field label="หน่วย" half><input style={s.input} value={form.unit||""} onChange={e=>setForm(f=>({...f,unit:e.target.value}))}/></Field>
-        <Field label="ราคา/หน่วย (฿)" half><input style={s.input} type="number" value={form.costPerUnit||""} onChange={e=>setForm(f=>({...f,costPerUnit:e.target.value}))}/></Field>
-        <Field label="Min Stock (จุดสั่งซื้อ)" half><input style={s.input} type="number" value={form.minQty||""} onChange={e=>setForm(f=>({...f,minQty:e.target.value}))}/></Field>
-        <Field label="Supplier" half><select style={s.select} value={form.supplier||""} onChange={e=>setForm(f=>({...f,supplier:e.target.value}))}>{data.suppliers.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
-        <Field label="รูปภาพ"><ImageUploadBlock value={form.imagePreview||null} onChange={v=>setForm(f=>({...f,imagePreview:v}))} label="" height={100}/></Field>
-      </Row2>
+    {modal==="acc" && <Modal title={form.id?"แก้ไข Accessories":"เพิ่ม Accessories"} onClose={() => setModal(null)} wide>
+      <div style={{ display:"grid", gridTemplateColumns:"160px 1fr", gap:16 }}>
+        <div>
+          <div style={{ fontSize:12, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>📷 รูปภาพ</div>
+          <label style={{ cursor:"pointer", display:"block" }}>
+            <div style={{ width:160, height:200, borderRadius:8, border:`2px dashed ${form.imagePreview?C.accent:C.border}`, background:"#060b16", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+              {form.imagePreview
+                ? <img src={form.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"contain" }}/>
+                : <div style={{ textAlign:"center", color:C.muted }}><div style={{ fontSize:28 }}>📷</div><div style={{ fontSize:11, marginTop:4 }}>คลิกอัปโหลด</div></div>
+              }
+            </div>
+            <input type="file" accept="image/*" style={{ display:"none" }} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setForm(fm=>({...fm,imagePreview:ev.target.result}));r.readAsDataURL(f);}}/>
+          </label>
+          {form.imagePreview && <button onClick={()=>setForm(f=>({...f,imagePreview:null}))} style={{ ...s.btnGhost, marginTop:6, fontSize:11, padding:"2px 8px", color:C.err, borderColor:C.err+"50" }}>× ลบรูป</button>}
+        </div>
+        <Row2>
+          <Field label="ชื่อ"><input style={s.input} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></Field>
+          <Field label="หน่วย" half><input style={s.input} value={form.unit||""} onChange={e=>setForm(f=>({...f,unit:e.target.value}))}/></Field>
+          <Field label="ราคา/หน่วย (฿)" half><input style={s.input} type="number" value={form.costPerUnit||""} onChange={e=>setForm(f=>({...f,costPerUnit:e.target.value}))}/></Field>
+          <Field label="Min Stock (จุดสั่งซื้อ)" half><input style={s.input} type="number" value={form.minQty||""} onChange={e=>setForm(f=>({...f,minQty:e.target.value}))}/></Field>
+          <Field label="Supplier" half><select style={s.select} value={form.supplier||""} onChange={e=>setForm(f=>({...f,supplier:e.target.value}))}>{data.suppliers.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+        </Row2>
+      </div>
       <div style={{ display:"flex", gap:8, marginTop:16 }}><button style={s.btn()} onClick={save}>{t("save")}</button><button style={s.btnGhost} onClick={() => setModal(null)}>{t("cancel")}</button></div>
     </Modal>}
 
     {modal==="print" && <Modal title={form.id?"แก้ไข Print/EMB":"เพิ่ม Print/EMB"} onClose={() => setModal(null)} wide>
-      <Row2>
-        <Field label="ชื่อ" half><input style={s.input} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></Field>
-        <Field label="ราคาเริ่มต้น/ตัว (฿)" half><input style={s.input} type="number" value={form.costPerUnit||""} onChange={e=>setForm(f=>({...f,costPerUnit:e.target.value}))} placeholder="ราคา default"/></Field>
-        <Field label="รูปภาพตัวอย่าง"><ImageUploadBlock value={form.imagePreview||null} onChange={v=>setForm(f=>({...f,imagePreview:v}))} label="" height={110}/></Field>
-      </Row2>
+      <div style={{ display:"grid", gridTemplateColumns:"160px 1fr", gap:16, marginBottom:16 }}>
+        <div>
+          <div style={{ fontSize:12, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>📷 รูปภาพตัวอย่าง</div>
+          <label style={{ cursor:"pointer", display:"block" }}>
+            <div style={{ width:160, height:200, borderRadius:8, border:`2px dashed ${form.imagePreview?C.accent:C.border}`, background:"#060b16", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+              {form.imagePreview
+                ? <img src={form.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"contain" }}/>
+                : <div style={{ textAlign:"center", color:C.muted }}><div style={{ fontSize:28 }}>📷</div><div style={{ fontSize:11, marginTop:4 }}>คลิกอัปโหลด</div></div>
+              }
+            </div>
+            <input type="file" accept="image/*" style={{ display:"none" }} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setForm(fm=>({...fm,imagePreview:ev.target.result}));r.readAsDataURL(f);}}/>
+          </label>
+          {form.imagePreview && <button onClick={()=>setForm(f=>({...f,imagePreview:null}))} style={{ ...s.btnGhost, marginTop:6, fontSize:11, padding:"2px 8px", color:C.err, borderColor:C.err+"50" }}>× ลบรูป</button>}
+        </div>
+        <Row2>
+          <Field label="ชื่อ" half><input style={s.input} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></Field>
+          <Field label="ราคาเริ่มต้น/ตัว (฿)" half><input style={s.input} type="number" value={form.costPerUnit||""} onChange={e=>setForm(f=>({...f,costPerUnit:e.target.value}))} placeholder="ราคา default"/></Field>
+        </Row2>
+      </div>
       {/* ราคาแยกตามตำแหน่ง */}
       <div style={{ marginTop:16 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
@@ -726,16 +786,30 @@ function MasterModule() {
       <div style={{ display:"flex", gap:8, marginTop:16 }}><button style={s.btn()} onClick={save}>{t("save")}</button><button style={s.btnGhost} onClick={() => setModal(null)}>{t("cancel")}</button></div>
     </Modal>}
 
-    {modal==="supplier" && <Modal title={form.id?"แก้ไข Supplier":"เพิ่ม Supplier"} onClose={() => setModal(null)}>
-      <Row2>
-        <Field label="ชื่อบริษัท"><input style={s.input} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></Field>
-        <Field label="เบอร์โทร" half><input style={s.input} value={form.contact||""} onChange={e=>setForm(f=>({...f,contact:e.target.value}))}/></Field>
-        <Field label="Email" half><input style={s.input} value={form.email||""} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="sale@supplier.com"/></Field>
-        <Field label="ที่อยู่"><input style={s.input} value={form.address||""} onChange={e=>setForm(f=>({...f,address:e.target.value}))}/></Field>
-        <Field label="Credit Days (วัน)" half><input style={s.input} type="number" value={form.creditDays||30} onChange={e=>setForm(f=>({...f,creditDays:e.target.value}))}/></Field>
-        <Field label="หมวด" half><select style={s.select} value={form.category||"Fabric"} onChange={e=>setForm(f=>({...f,category:e.target.value}))}><option>Fabric</option><option>Accessories</option><option>Packaging</option><option>Other</option></select></Field>
-        <Field label="โลโก้ / รูปบริษัท"><ImageUploadBlock value={form.imagePreview||null} onChange={v=>setForm(f=>({...f,imagePreview:v}))} label="" height={90}/></Field>
-      </Row2>
+    {modal==="supplier" && <Modal title={form.id?"แก้ไข Supplier":"เพิ่ม Supplier"} onClose={() => setModal(null)} wide>
+      <div style={{ display:"grid", gridTemplateColumns:"160px 1fr", gap:16 }}>
+        <div>
+          <div style={{ fontSize:12, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>📷 โลโก้/รูปบริษัท</div>
+          <label style={{ cursor:"pointer", display:"block" }}>
+            <div style={{ width:160, height:200, borderRadius:8, border:`2px dashed ${form.imagePreview?C.accent:C.border}`, background:"#060b16", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+              {form.imagePreview
+                ? <img src={form.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"contain" }}/>
+                : <div style={{ textAlign:"center", color:C.muted }}><div style={{ fontSize:28 }}>📷</div><div style={{ fontSize:11, marginTop:4 }}>คลิกอัปโหลด</div></div>
+              }
+            </div>
+            <input type="file" accept="image/*" style={{ display:"none" }} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setForm(fm=>({...fm,imagePreview:ev.target.result}));r.readAsDataURL(f);}}/>
+          </label>
+          {form.imagePreview && <button onClick={()=>setForm(f=>({...f,imagePreview:null}))} style={{ ...s.btnGhost, marginTop:6, fontSize:11, padding:"2px 8px", color:C.err, borderColor:C.err+"50" }}>× ลบรูป</button>}
+        </div>
+        <Row2>
+          <Field label="ชื่อบริษัท"><input style={s.input} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></Field>
+          <Field label="เบอร์โทร" half><input style={s.input} value={form.contact||""} onChange={e=>setForm(f=>({...f,contact:e.target.value}))}/></Field>
+          <Field label="Email" half><input style={s.input} value={form.email||""} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="sale@supplier.com"/></Field>
+          <Field label="ที่อยู่"><input style={s.input} value={form.address||""} onChange={e=>setForm(f=>({...f,address:e.target.value}))}/></Field>
+          <Field label="Credit Days (วัน)" half><input style={s.input} type="number" value={form.creditDays||30} onChange={e=>setForm(f=>({...f,creditDays:e.target.value}))}/></Field>
+          <Field label="หมวด" half><select style={s.select} value={form.category||"Fabric"} onChange={e=>setForm(f=>({...f,category:e.target.value}))}><option>Fabric</option><option>Accessories</option><option>Packaging</option><option>Other</option></select></Field>
+        </Row2>
+      </div>
       <div style={{ display:"flex", gap:8, marginTop:16 }}><button style={s.btn()} onClick={save}>{t("save")}</button><button style={s.btnGhost} onClick={() => setModal(null)}>{t("cancel")}</button></div>
     </Modal>}
 
