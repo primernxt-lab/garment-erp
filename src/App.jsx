@@ -1133,93 +1133,126 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
                   </div>
                 </div>
 
-                {/* EMB Position + Price per position — MULTI ITEM */}
-                {slot.printTypeId && slot.printTypeId !== "PT001" && (() => {
-                  const selPrintType = data.printTypes.find(p=>p.id===slot.printTypeId);
-                  // screenItems = [{position, price, printTypeId}] — หลายรายการได้
-                  const screenItems = Array.isArray(slot.screenItems) ? slot.screenItems : 
-                    embArr.map(pos => ({ position:pos, price:(slot.positionPrices||{})[pos]||"", printTypeId:slot.printTypeId }));
+                {/* SCREEN/EMB — แต่ละรายการเลือก Print type แยกกันได้ */}
+                {(() => {
+                  const screenItems = Array.isArray(slot.screenItems) ? slot.screenItems : [];
                   const updateScreenItem = (idx, key, val) => {
                     const updated = screenItems.map((x,j) => j===idx ? {...x,[key]:val} : x);
                     updateSlot(i,"screenItems",updated);
-                    // sync embPositions
                     updateSlot(i,"embPositions",updated.map(x=>x.position).filter(Boolean));
                   };
-                  const addScreenItem = () => updateSlot(i,"screenItems",[...screenItems, {position:"", price:"", printTypeId:slot.printTypeId}]);
+                  const addScreenItem = () => updateSlot(i,"screenItems",[...screenItems, {position:"", price:"", printTypeId:""}]);
                   const removeScreenItem = (idx) => {
                     const updated = screenItems.filter((_,j)=>j!==idx);
                     updateSlot(i,"screenItems",updated);
                     updateSlot(i,"embPositions",updated.map(x=>x.position).filter(Boolean));
                   };
-                  const totalEMB = screenItems.reduce((s,x)=>s+(parseFloat(x.price)||selPrintType?.costPerUnit||0),0);
-                  const [collapsed, setCollapsed] = [slot._screenCollapsed, (v)=>updateSlot(i,"_screenCollapsed",v)];
+                  const totalEMB = screenItems.reduce((s,x) => {
+                    const pt = data.printTypes.find(p=>p.id===x.printTypeId);
+                    return s + (parseFloat(x.price) || pt?.costPerUnit || 0);
+                  }, 0);
+                  const collapsed = slot._screenCollapsed;
+                  const setCollapsed = (v) => updateSlot(i,"_screenCollapsed",v);
+                  const filledItems = screenItems.filter(x=>x.printTypeId||x.position);
 
                   return <div style={{ marginBottom:10 }}>
                     {/* Header */}
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-                      <div style={{ fontSize:14, color:C.muted, textTransform:"uppercase" }}>🖨 รายการ Screen/EMB</div>
+                      <div style={{ fontSize:14, color:C.muted, textTransform:"uppercase" }}>
+                        🖨 รายการ Screen/EMB
+                        {filledItems.length > 0 && <span style={{ color:C.accent, marginLeft:6 }}>({filledItems.length} รายการ)</span>}
+                      </div>
                       <div style={{ display:"flex", gap:6 }}>
                         {screenItems.length > 0 && (
                           <button onClick={()=>setCollapsed(!collapsed)} style={{ ...s.btnGhost, padding:"2px 10px", fontSize:12, color:C.accent, borderColor:C.accent+"50" }}>
-                            {collapsed ? `▼ ดูทั้งหมด (${screenItems.length})` : "▲ ย่อ"}
+                            {collapsed ? "▼ ดูทั้งหมด" : "▲ ย่อ"}
                           </button>
                         )}
-                        <button onClick={addScreenItem} style={{ ...s.btnSm(), padding:"3px 10px", fontSize:13 }}>+ เพิ่ม</button>
+                        <button onClick={addScreenItem} style={{ ...s.btnSm(), padding:"4px 12px", fontSize:13 }}>+ เพิ่ม</button>
                       </div>
                     </div>
 
-                    {/* รูปภาพ Print type */}
-                    {selPrintType?.imagePreview && (
-                      <div style={{ marginBottom:8, display:"flex", alignItems:"center", gap:10, padding:"6px 10px", background:"#0a0f1e", borderRadius:8, border:`1px solid ${C.border}` }}>
-                        <img src={selPrintType.imagePreview} alt="" style={{ width:48, height:48, objectFit:"cover", borderRadius:6, border:`1px solid ${C.border}` }}/>
-                        <div>
-                          <div style={{ fontSize:14, fontWeight:700, color:C.accent }}>{selPrintType.name}</div>
-                          <div style={{ fontSize:12, color:C.muted }}>ราคาเริ่มต้น ฿{selPrintType.costPerUnit}/ตัว</div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* รายการ — แสดงเมื่อไม่ย่อ */}
-                    {!collapsed && <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                    {/* รายการ */}
+                    {!collapsed && <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                       {screenItems.length === 0 && (
-                        <div style={{ textAlign:"center", padding:"10px 0", color:C.muted, fontSize:13 }}>กด + เพิ่ม เพื่อเพิ่มรายการ</div>
-                      )}
-                      {screenItems.map((item, idx) => (
-                        <div key={idx} style={{ display:"flex", gap:8, alignItems:"center", padding:"8px 10px", background:item.position?C.accent+"10":"#060b16", borderRadius:8, border:`1px solid ${item.position?C.accent+"40":C.border}` }}>
-                          {/* รูปถ้ามี */}
-                          {selPrintType?.imagePreview && (
-                            <img src={selPrintType.imagePreview} alt="" style={{ width:32, height:32, objectFit:"cover", borderRadius:5, border:`1px solid ${C.border}`, flexShrink:0 }}/>
-                          )}
-                          {/* ตำแหน่ง */}
-                          <select style={{ ...s.select, flex:2, fontSize:14, padding:"6px 8px" }}
-                            value={item.position}
-                            onChange={e=>updateScreenItem(idx,"position",e.target.value)}>
-                            <option value="">— ตำแหน่ง —</option>
-                            {EMB_POSITIONS.map(pos=><option key={pos} value={pos}>{pos}</option>)}
-                          </select>
-                          {/* ราคา */}
-                          <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
-                            <span style={{ fontSize:13, color:C.muted }}>฿</span>
-                            <input style={{ ...s.input, width:80, padding:"6px 8px", fontSize:14, textAlign:"right" }}
-                              type="number" placeholder={selPrintType?.costPerUnit||"0"}
-                              value={item.price}
-                              onChange={e=>updateScreenItem(idx,"price",e.target.value)}/>
-                          </div>
-                          <button onClick={()=>removeScreenItem(idx)} style={{ background:"none", border:`1px solid ${C.err}40`, color:C.err, borderRadius:4, padding:"4px 8px", cursor:"pointer", fontSize:13, flexShrink:0 }}>×</button>
+                        <div style={{ textAlign:"center", padding:"12px", color:C.muted, fontSize:13, border:`1px dashed ${C.border}`, borderRadius:8 }}>
+                          กด <strong style={{color:C.accent}}>+ เพิ่ม</strong> เพื่อเพิ่มรายการ Screen/EMB
                         </div>
-                      ))}
+                      )}
+                      {screenItems.map((item, idx) => {
+                        const itemPT = data.printTypes.find(p=>p.id===item.printTypeId);
+                        return (
+                          <div key={idx} style={{ background:item.printTypeId?"#0a1020":"#060b16", borderRadius:10, border:`1px solid ${item.printTypeId?C.accent+"40":C.border}`, overflow:"hidden" }}>
+                            <div style={{ display:"flex", gap:8, alignItems:"center", padding:"10px" }}>
+                              {/* รูป Print type */}
+                              <div style={{ width:38, height:38, borderRadius:6, overflow:"hidden", flexShrink:0, background:"#060b16", border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                                {itemPT?.imagePreview
+                                  ? <img src={itemPT.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+                                  : <span style={{ fontSize:18 }}>🖨</span>
+                                }
+                              </div>
+                              {/* Print type */}
+                              <select style={{ ...s.select, flex:1.2, fontSize:14, padding:"7px 8px" }}
+                                value={item.printTypeId}
+                                onChange={e => {
+                                  const pt = data.printTypes.find(p=>p.id===e.target.value);
+                                  updateScreenItem(idx,"printTypeId",e.target.value);
+                                  if (!item.price && pt) updateScreenItem(idx,"price",pt.costPerUnit||"");
+                                }}>
+                                <option value="">— Screen/EMB —</option>
+                                {data.printTypes.filter(p=>p.id!=="PT001").map(p => (
+                                  <option key={p.id} value={p.id}>{p.name}{p.costPerUnit>0?` ฿${p.costPerUnit}`:""}</option>
+                                ))}
+                              </select>
+                              {/* ตำแหน่ง */}
+                              <select style={{ ...s.select, flex:1, fontSize:14, padding:"7px 8px" }}
+                                value={item.position}
+                                onChange={e=>updateScreenItem(idx,"position",e.target.value)}>
+                                <option value="">— ตำแหน่ง —</option>
+                                {EMB_POSITIONS.map(pos=><option key={pos} value={pos}>{pos}</option>)}
+                              </select>
+                              {/* ราคา */}
+                              <div style={{ display:"flex", alignItems:"center", gap:3, flexShrink:0 }}>
+                                <span style={{ fontSize:13, color:C.muted }}>฿</span>
+                                <input style={{ ...s.input, width:75, padding:"7px 8px", fontSize:14, textAlign:"right" }}
+                                  type="number" placeholder={itemPT?.costPerUnit||"0"}
+                                  value={item.price}
+                                  onChange={e=>updateScreenItem(idx,"price",e.target.value)}/>
+                              </div>
+                              <button onClick={()=>removeScreenItem(idx)} style={{ background:"none", border:`1px solid ${C.err}40`, color:C.err, borderRadius:4, padding:"5px 9px", cursor:"pointer", fontSize:14, flexShrink:0 }}>×</button>
+                            </div>
+                            {/* Sub-info */}
+                            {itemPT && item.position && (
+                              <div style={{ padding:"3px 10px 7px 56px", fontSize:12, color:C.accent }}>
+                                {itemPT.name} · {item.position} · ฿{parseFloat(item.price)||itemPT.costPerUnit||0}/ตัว
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>}
 
-                    {/* สรุปย่อ — แสดงเสมอ */}
-                    {screenItems.filter(x=>x.position).length > 0 && (
+                    {/* สรุปย่อ */}
+                    {filledItems.length > 0 && (
                       <div style={{ marginTop:8, padding:"8px 12px", background:C.accent+"10", border:`1px solid ${C.accent}30`, borderRadius:8 }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:collapsed?0:4 }}>
-                          <span style={{ fontSize:13, color:C.accent, fontWeight:700 }}>
-                            📍 {screenItems.filter(x=>x.position).map(x=>x.position).join(" · ")}
-                          </span>
-                          <span style={{ fontSize:14, fontWeight:800, color:C.accent }}>฿{totalEMB.toFixed(0)}/ตัว</span>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                          <div style={{ flex:1 }}>
+                            {filledItems.map((x,idx) => {
+                              const pt = data.printTypes.find(p=>p.id===x.printTypeId);
+                              return (
+                                <div key={idx} style={{ fontSize:13, color:C.text, marginBottom:2 }}>
+                                  <span style={{ color:C.accent, fontWeight:700 }}>#{idx+1}</span>{" "}
+                                  {pt?.name||"—"} · <span style={{ color:C.sub }}>{x.position||"—"}</span> ·{" "}
+                                  <span style={{ color:C.ok }}>฿{parseFloat(x.price)||pt?.costPerUnit||0}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div style={{ textAlign:"right", flexShrink:0, marginLeft:16 }}>
+                            <div style={{ fontSize:11, color:C.muted, marginBottom:2 }}>รวม Screen/EMB</div>
+                            <div style={{ fontSize:18, fontWeight:800, color:C.accent }}>฿{totalEMB.toFixed(0)}<span style={{ fontSize:12, color:C.muted }}>/ตัว</span></div>
+                          </div>
                         </div>
-                        {!collapsed && <div style={{ fontSize:12, color:C.muted }}>{screenItems.filter(x=>x.position).length} รายการ · รวม ฿{totalEMB.toFixed(0)} ต่อตัว</div>}
                       </div>
                     )}
                   </div>;
