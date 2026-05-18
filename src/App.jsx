@@ -426,10 +426,16 @@ function PatternMaster({ data, setData }) {
     </div>
     <div style={{ overflowX:"auto" }}>
       <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
-        <thead><tr>{["Style Code","Pattern","Category","BOM v","Size Set","Fabric","ผ้า/ตัว","Labor",""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+        <thead><tr>{["รูป","Style Code","Pattern","Category","BOM v","Size Set","Fabric","ผ้า/ตัว","Labor",""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
         <tbody>{data.patterns.map(p => {
           const fab = data.fabrics.find(f=>f.id===p.fabricId);
           return <tr key={p.id}>
+            <td style={{ ...s.td, width:48 }}>
+              {p.imagePreview
+                ? <img src={p.imagePreview} alt="" style={{ width:40, height:40, objectFit:"cover", borderRadius:6, border:`1px solid ${C.border}` }}/>
+                : <div style={{ width:40, height:40, borderRadius:6, background:"#060b16", border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center", color:C.muted, fontSize:16 }}>📐</div>
+              }
+            </td>
             <td style={{ ...s.td, color:C.cyan, fontFamily:"monospace", fontSize:17 }}>{p.styleCode||"—"}</td>
             <td style={s.td}>{p.name}</td>
             <td style={s.td}><Tag text={p.category} color={C.purple}/></td>
@@ -564,8 +570,14 @@ function MasterModule() {
       </div>
       <div style={{ overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", minWidth:750 }}>
-          <thead><tr>{["Code","ชื่อผ้า","ประเภท","สี","หน้ากว้าง(cm)","ราคา/m","Min Stock","Supplier",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+          <thead><tr>{["รูป","Code","ชื่อผ้า","ประเภท","สี","หน้ากว้าง(cm)","ราคา/m","Min Stock","Supplier",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
           <tbody>{data.fabrics.map(f => <tr key={f.id}>
+            <td style={{ ...s.td, width:48 }}>
+              {f.imagePreview
+                ? <img src={f.imagePreview} alt="" style={{ width:40, height:40, objectFit:"cover", borderRadius:6, border:`1px solid ${C.border}` }}/>
+                : <div style={{ width:40, height:40, borderRadius:6, background:"#060b16", border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center", color:C.muted, fontSize:16 }}>📷</div>
+              }
+            </td>
             <td style={{ ...s.td, color:C.cyan, fontFamily:"monospace", fontSize:17 }}>{f.code||f.id}</td>
             <td style={s.td}>{f.name}</td>
             <td style={s.td}><Tag text={f.type} color={C.accent2}/></td>
@@ -591,11 +603,17 @@ function MasterModule() {
       </div>
       <div style={{ overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", minWidth:600 }}>
-          <thead><tr>{["ID","ชื่อ","หน่วย","ราคา/unit","Min Stock","Stock ปัจจุบัน","Status",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+          <thead><tr>{["รูป","ID","ชื่อ","หน่วย","ราคา/unit","Min Stock","Stock ปัจจุบัน","Status",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
           <tbody>{data.accessories.map(a => {
             const qty   = data.stock[a.id]||0;
             const isLow = qty < (a.minQty||0);
             return <tr key={a.id}>
+              <td style={{ ...s.td, width:48 }}>
+                {a.imagePreview
+                  ? <img src={a.imagePreview} alt="" style={{ width:40, height:40, objectFit:"cover", borderRadius:6, border:`1px solid ${C.border}` }}/>
+                  : <div style={{ width:40, height:40, borderRadius:6, background:"#060b16", border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center", color:C.muted, fontSize:16 }}>📷</div>
+                }
+              </td>
               <td style={{ ...s.td, color:C.muted, fontFamily:"monospace" }}>{a.id}</td>
               <td style={s.td}>{a.name}</td>
               <td style={s.td}>{a.unit}</td>
@@ -622,13 +640,25 @@ function MasterModule() {
         <button style={s.btn()} onClick={() => { setModal("print"); setForm({}); }}>{t("add")}</button>
       </div>
       <table style={{ width:"100%", borderCollapse:"collapse" }}>
-        <thead><tr>{["ID","ชื่อ","ราคา/ตัว",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+        <thead><tr>{["รูป","ID","ชื่อ","ราคา/ตัว","ราคาแยกตำแหน่ง",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
         <tbody>{data.printTypes.map(p => <tr key={p.id}>
+          <td style={{ ...s.td, width:48 }}>
+            {p.imagePreview
+              ? <img src={p.imagePreview} alt="" style={{ width:40, height:40, objectFit:"cover", borderRadius:6, border:`1px solid ${C.border}` }}/>
+              : <div style={{ width:40, height:40, borderRadius:6, background:"#060b16", border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center", color:C.muted, fontSize:16 }}>🖨</div>
+            }
+          </td>
           <td style={{ ...s.td, color:C.muted, fontFamily:"monospace" }}>{p.id}</td>
           <td style={s.td}>{p.name}</td>
           <td style={{ ...s.td, color:C.accent }}>฿{fmt(p.costPerUnit)}</td>
+          <td style={{ ...s.td, fontSize:13, color:C.sub }}>
+            {(p.positionPrices||[]).length > 0
+              ? (p.positionPrices||[]).map(pp => `${pp.position}: ฿${pp.price}`).join(" · ")
+              : <span style={{ color:C.muted }}>—</span>
+            }
+          </td>
           <td style={s.td}>
-            <button onClick={() => { setModal("print"); setForm(p); }} style={{ ...s.btnGhost, padding:"3px 8px", marginRight:4, fontSize:17 }}>{t("edit")}</button>
+            <button onClick={() => { setModal("print"); setForm({...p, positionPrices:p.positionPrices||[]}); }} style={{ ...s.btnGhost, padding:"3px 8px", marginRight:4, fontSize:17 }}>{t("edit")}</button>
             <button onClick={() => del("print",p.id)} style={{ ...s.btnGhost, padding:"3px 8px", color:C.err, borderColor:C.err+"50", fontSize:17 }}>{t("del")}</button>
           </td>
         </tr>)}</tbody>
@@ -643,8 +673,14 @@ function MasterModule() {
       </div>
       <div style={{ overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
-          <thead><tr>{["ID","ชื่อบริษัท","เบอร์โทร","Email","Credit Days","หมวด",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+          <thead><tr>{["รูป","ID","ชื่อบริษัท","เบอร์โทร","Email","Credit Days","หมวด",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
           <tbody>{data.suppliers.map(sup => <tr key={sup.id}>
+            <td style={{ ...s.td, width:48 }}>
+              {sup.imagePreview
+                ? <img src={sup.imagePreview} alt="" style={{ width:40, height:40, objectFit:"cover", borderRadius:6, border:`1px solid ${C.border}` }}/>
+                : <div style={{ width:40, height:40, borderRadius:6, background:"#060b16", border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center", color:C.muted, fontSize:16 }}>🏭</div>
+              }
+            </td>
             <td style={{ ...s.td, color:C.muted, fontFamily:"monospace" }}>{sup.id}</td>
             <td style={s.td}>{sup.name}</td>
             <td style={{ ...s.td, color:C.sub }}>{sup.contact}</td>
