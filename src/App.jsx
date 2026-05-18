@@ -1083,15 +1083,20 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
 
               {/* LEFT COL: รูปภาพแนวตั้ง */}
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                <div style={{ fontSize:12, color:C.muted, textTransform:"uppercase" }}>📷 รูปสินค้า</div>
+                <div style={{ fontSize:13, color:C.muted, textTransform:"uppercase" }}>📷 รูปสินค้า</div>
                 <label style={{ cursor:"pointer", flex:1 }}>
-                  <div style={{ width:130, height:170, borderRadius:8, border:`2px dashed ${slot.imagePreview?C.accent:C.border}`, background:"#0a0f1e", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+                  <div style={{ width:130, height:170, borderRadius:8, border:`2px dashed ${(slot.imagePreview||selPat?.imagePreview)?C.accent:C.border}`, background:"#0a0f1e", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", position:"relative" }}>
                     {slot.imagePreview
                       ? <img src={slot.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
-                      : <div style={{ textAlign:"center", color:C.muted }}>
-                          <div style={{ fontSize:28 }}>📷</div>
-                          <div style={{ fontSize:11, marginTop:4 }}>คลิกอัปโหลด</div>
-                        </div>
+                      : selPat?.imagePreview
+                        ? <>
+                            <img src={selPat.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"cover", opacity:0.85 }}/>
+                            <div style={{ position:"absolute", bottom:4, left:0, right:0, textAlign:"center", fontSize:10, color:C.accent, background:"#000a" }}>จาก Pattern</div>
+                          </>
+                        : <div style={{ textAlign:"center", color:C.muted }}>
+                            <div style={{ fontSize:28 }}>📷</div>
+                            <div style={{ fontSize:11, marginTop:4 }}>คลิกอัปโหลด</div>
+                          </div>
                     }
                   </div>
                   <input type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
@@ -1109,15 +1114,20 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
                 {/* Pattern + Print row */}
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
                   <div>
-                    <div style={{ fontSize:12, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>Pattern / Style</div>
-                    <select style={{ ...s.select, fontSize:13 }} value={slot.patternId} onChange={e=>updateSlot(i,"patternId",e.target.value)}>
+                    <div style={{ fontSize:14, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>Pattern / Style</div>
+                    <select style={{ ...s.select, fontSize:15 }} value={slot.patternId} onChange={e => {
+                      const newPat = data.patterns.find(p=>p.id===e.target.value);
+                      updateSlot(i,"patternId",e.target.value);
+                      // ถ้า slot ยังไม่มีรูปเอง ให้ clear ออกเพื่อแสดงรูป pattern แทน
+                      if (!slot.imagePreview) updateSlot(i,"_patternChanged", Date.now());
+                    }}>
                       <option value="">— เลือก Pattern —</option>
                       {data.patterns.map(p => <option key={p.id} value={p.id}>{p.styleCode||p.id} — {p.name}</option>)}
                     </select>
                   </div>
                   <div>
-                    <div style={{ fontSize:12, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>Print / EMB</div>
-                    <select style={{ ...s.select, fontSize:13 }} value={slot.printTypeId} onChange={e=>updateSlot(i,"printTypeId",e.target.value)}>
+                    <div style={{ fontSize:14, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>Print / EMB</div>
+                    <select style={{ ...s.select, fontSize:15 }} value={slot.printTypeId} onChange={e=>updateSlot(i,"printTypeId",e.target.value)}>
                       {data.printTypes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </div>
@@ -1125,7 +1135,7 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
 
                 {/* EMB Position + Price per position */}
                 {slot.printTypeId && slot.printTypeId !== "PT001" && <div style={{ marginBottom:10 }}>
-                  <div style={{ fontSize:12, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>📍 ตำแหน่ง + ราคา Screen/EMB</div>
+                  <div style={{ fontSize:14, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>📍 ตำแหน่ง + ราคา Screen/EMB</div>
                   <div style={{ display:"flex", flexDirection:"column", gap:4, maxHeight:200, overflowY:"auto", border:`1px solid ${C.border}`, borderRadius:8, padding:8 }}>
                     {EMB_POSITIONS.map(pos => {
                       const selPrintType = data.printTypes.find(p=>p.id===slot.printTypeId);
@@ -1133,14 +1143,14 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
                       const defaultPrice = selPrintType?.costPerUnit || 0;
                       const slotPosPrice = (slot.positionPrices||{})[pos] ?? (posPrice?.price || "");
                       return (
-                        <label key={pos} style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", padding:"5px 8px", borderRadius:6, background:embArr.includes(pos)?C.accent+"20":"transparent", border:`1px solid ${embArr.includes(pos)?C.accent:C.border}` }}>
-                          <input type="checkbox" checked={embArr.includes(pos)} onChange={()=>toggleEmb(pos)} style={{ accentColor:C.accent, width:14, height:14 }}/>
-                          <span style={{ fontSize:13, color:embArr.includes(pos)?C.accent:C.text, flex:1 }}>{pos}</span>
+                        <label key={pos} style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", padding:"6px 10px", borderRadius:6, background:embArr.includes(pos)?C.accent+"20":"transparent", border:`1px solid ${embArr.includes(pos)?C.accent:C.border}` }}>
+                          <input type="checkbox" checked={embArr.includes(pos)} onChange={()=>toggleEmb(pos)} style={{ accentColor:C.accent, width:15, height:15 }}/>
+                          <span style={{ fontSize:15, color:embArr.includes(pos)?C.accent:C.text, flex:1 }}>{pos}</span>
                           {embArr.includes(pos) && (
                             <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                              <span style={{ fontSize:11, color:C.muted }}>฿</span>
+                              <span style={{ fontSize:13, color:C.muted }}>฿</span>
                               <input
-                                style={{ ...s.input, width:70, padding:"3px 6px", fontSize:12, textAlign:"right" }}
+                                style={{ ...s.input, width:75, padding:"4px 6px", fontSize:14, textAlign:"right" }}
                                 type="number"
                                 placeholder={defaultPrice||"0"}
                                 value={slotPosPrice}
@@ -1153,7 +1163,7 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
                             </div>
                           )}
                           {!embArr.includes(pos) && posPrice && (
-                            <span style={{ fontSize:11, color:C.muted }}>฿{posPrice.price}</span>
+                            <span style={{ fontSize:12, color:C.muted }}>฿{posPrice.price}</span>
                           )}
                         </label>
                       );
@@ -1172,25 +1182,25 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
                 </div>}
 
                 {/* Color */}
-                <div style={{ fontSize:12, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>🎨 สีสินค้า</div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:6 }}>
+                <div style={{ fontSize:14, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>🎨 สีสินค้า</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:6 }}>
                   {BASIC_COLORS.map(c => (
                     <button key={c.name} title={c.name} onClick={() => { updateSlot(i,"colorNote",c.name); updateSlot(i,"colorHex",c.hex); }}
-                      style={{ width:26, height:26, borderRadius:"50%", border:`3px solid ${slot.colorHex===c.hex?C.accent:"transparent"}`, background:c.hex, cursor:"pointer", boxShadow:slot.colorHex===c.hex?`0 0 0 2px ${C.accent}`:"none" }}>
+                      style={{ width:30, height:30, borderRadius:"50%", border:`3px solid ${slot.colorHex===c.hex?C.accent:"transparent"}`, background:c.hex, cursor:"pointer", boxShadow:slot.colorHex===c.hex?`0 0 0 2px ${C.accent}`:"none" }}>
                     </button>
                   ))}
                 </div>
                 <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
-                  {slot.colorHex && <div style={{ width:20, height:20, borderRadius:4, background:slot.colorHex, border:`1px solid ${C.border}`, flexShrink:0 }}/>}
-                  <input style={{ ...s.input, flex:1, fontSize:13 }} placeholder="หรือพิมพ์ชื่อสี..." value={slot.colorNote||""} onChange={e=>updateSlot(i,"colorNote",e.target.value)}/>
+                  {slot.colorHex && <div style={{ width:22, height:22, borderRadius:4, background:slot.colorHex, border:`1px solid ${C.border}`, flexShrink:0 }}/>}
+                  <input style={{ ...s.input, flex:1, fontSize:15 }} placeholder="หรือพิมพ์ชื่อสี..." value={slot.colorNote||""} onChange={e=>updateSlot(i,"colorNote",e.target.value)}/>
                 </div>
 
                 {/* Size Breakdown */}
-                <div style={{ fontSize:12, color:C.muted, marginBottom:5, textTransform:"uppercase" }}>
+                <div style={{ fontSize:14, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>
                   📐 Size Breakdown
                   {sbTotal > 0 && <span style={{ color:C.accent, marginLeft:8 }}>รวม {sbTotal} ตัว</span>}
                 </div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:6 }}>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:6 }}>
                   {ALL_SIZES.map(sz => (
                     <button key={sz}
                       onClick={() => {
@@ -1198,7 +1208,7 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
                         if (cur[sz] !== undefined) { delete cur[sz]; } else { cur[sz] = ""; }
                         updateSlot(i,"sizeBreakdown",cur);
                       }}
-                      style={{ padding:"2px 7px", borderRadius:5, border:`1px solid ${sbObj[sz]!==undefined?C.accent:C.border}`, background:sbObj[sz]!==undefined?C.accent+"20":"transparent", color:sbObj[sz]!==undefined?C.accent:C.muted, cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>
+                      style={{ padding:"3px 9px", borderRadius:5, border:`1px solid ${sbObj[sz]!==undefined?C.accent:C.border}`, background:sbObj[sz]!==undefined?C.accent+"20":"transparent", color:sbObj[sz]!==undefined?C.accent:C.muted, cursor:"pointer", fontSize:14, fontFamily:"inherit" }}>
                       {sz}
                     </button>
                   ))}
@@ -1207,8 +1217,8 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5, marginBottom:8 }}>
                     {Object.keys(sbObj).map(sz => (
                       <div key={sz}>
-                        <div style={{ fontSize:11, color:C.accent, textAlign:"center", marginBottom:2, fontWeight:700 }}>{sz}</div>
-                        <input style={{ ...s.input, textAlign:"center", padding:"5px 2px", fontSize:12 }}
+                        <div style={{ fontSize:13, color:C.accent, textAlign:"center", marginBottom:2, fontWeight:700 }}>{sz}</div>
+                        <input style={{ ...s.input, textAlign:"center", padding:"6px 2px", fontSize:14 }}
                           type="number" placeholder="0" min="0"
                           value={sbObj[sz]||""}
                           onChange={e => {
@@ -1224,8 +1234,8 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
                 )}
 
                 {/* Note */}
-                <div style={{ fontSize:12, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>📝 หมายเหตุ</div>
-                <textarea style={{ ...s.input, height:55, resize:"vertical", fontSize:13 }} value={slot.slotNote||""} onChange={e=>updateSlot(i,"slotNote",e.target.value)} placeholder="รายละเอียดพิเศษ..."/>
+                <div style={{ fontSize:14, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>📝 หมายเหตุ</div>
+                <textarea style={{ ...s.input, height:60, resize:"vertical", fontSize:15 }} value={slot.slotNote||""} onChange={e=>updateSlot(i,"slotNote",e.target.value)} placeholder="รายละเอียดพิเศษ..."/>
               </div>
             </div>
           </div>
