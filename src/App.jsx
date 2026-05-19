@@ -407,14 +407,35 @@ function ItemMasterModule() {
 const EMB_POSITIONS = ["อกซ้าย","อกขวา","กลางหน้าอก","หลัง","แขนซ้าย","แขนขวา","ชายเสื้อ","คอ","หน้าซ้ายล่าง","หน้าขวาล่าง"];
 function PatternMaster({ data, setData }) {
   const [modal, setModal] = useState(false);
-  const [form, setForm]   = useState({ accessories:[] });
+  const [form, setForm]   = useState({ accessories:[], fabricItems:[], spareItems:[] });
   const open = (p=null) => {
-    setForm(p ? { ...p, accessories:[...p.accessories] } : { accessories:[], laborCut:12, laborSew:30, laborQC:8, bomVersion:1, sizeSet:"S,M,L,XL" });
+    setForm(p ? {
+      ...p,
+      accessories: [...(p.accessories||[])],
+      fabricItems: [...(p.fabricItems||[{ fabricId:p.fabricId||"", qtyPerUnit:p.fabricPerUnit||2, note:"ผ้าหลัก" }])],
+      spareItems:  [...(p.spareItems||[])],
+    } : {
+      accessories:[], fabricItems:[{ fabricId:"", qtyPerUnit:2, note:"ผ้าหลัก" }], spareItems:[],
+      laborCut:12, laborSew:30, laborQC:8, bomVersion:1, sizeSet:"S,M,L,XL"
+    });
     setModal(true);
   };
   const save = () => {
     const id = form.id || genId("P");
-    const r  = { ...form, id, fabricPerUnit:parseFloat(form.fabricPerUnit)||2, laborCut:parseFloat(form.laborCut)||0, laborSew:parseFloat(form.laborSew)||0, laborQC:parseFloat(form.laborQC)||0, bomVersion:parseInt(form.bomVersion)||1 };
+    // backward compat: keep fabricId/fabricPerUnit from first fabric item
+    const firstFab = (form.fabricItems||[])[0];
+    const r = {
+      ...form, id,
+      fabricId:      firstFab?.fabricId || form.fabricId || "",
+      fabricPerUnit: parseFloat(firstFab?.qtyPerUnit)||2,
+      fabricItems:   form.fabricItems||[],
+      accessories:   form.accessories||[],
+      spareItems:    form.spareItems||[],
+      laborCut:  parseFloat(form.laborCut)||0,
+      laborSew:  parseFloat(form.laborSew)||0,
+      laborQC:   parseFloat(form.laborQC)||0,
+      bomVersion:parseInt(form.bomVersion)||1,
+    };
     setData(d => ({ ...d, patterns:[...d.patterns.filter(p=>p.id!==id), r] }));
     db.upsertPattern(r);
     setModal(false);
@@ -479,32 +500,103 @@ function PatternMaster({ data, setData }) {
             </select>
           </Field>
           <Field label="Size Set" half><input style={s.input} value={form.sizeSet||""} onChange={e=>setForm(f=>({...f,sizeSet:e.target.value}))} placeholder="S,M,L,XL"/></Field>
-          <Field label="Fabric" half>
-            <select style={s.select} value={form.fabricId||""} onChange={e=>setForm(f=>({...f,fabricId:e.target.value}))}>
-              {data.fabrics.map(f => <option key={f.id} value={f.id}>{f.code||f.id} — {f.name}</option>)}
-            </select>
-          </Field>
-          <Field label="ผ้า/ตัว (m)" half><input style={s.input} type="number" step="0.1" value={form.fabricPerUnit||""} onChange={e=>setForm(f=>({...f,fabricPerUnit:e.target.value}))}/></Field>
           <Field label="Labor ตัด (฿)" third><input style={s.input} type="number" value={form.laborCut||""} onChange={e=>setForm(f=>({...f,laborCut:e.target.value}))}/></Field>
           <Field label="Labor เย็บ (฿)" third><input style={s.input} type="number" value={form.laborSew||""} onChange={e=>setForm(f=>({...f,laborSew:e.target.value}))}/></Field>
           <Field label="Labor QC (฿)" third><input style={s.input} type="number" value={form.laborQC||""} onChange={e=>setForm(f=>({...f,laborQC:e.target.value}))}/></Field>
         </Row2>
       </div>
-      <div style={{ marginTop:14 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
-          <span style={{ fontSize:17, color:C.muted, textTransform:"uppercase" }}>Accessories / Trim</span>
-          <button style={{ ...s.btnGhost, padding:"3px 10px" }} onClick={() => setForm(f=>({...f,accessories:[...f.accessories,{accId:data.accessories[0]?.id||"",qtyPerUnit:1}]}))}>+ เพิ่ม</button>
+
+      {/* ── ส่วนที่ 1: เนื้อผ้า ── */}
+      <div style={{ marginTop:18, background:"#060b16", borderRadius:10, padding:14, border:`1px solid ${C.accent}40` }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+          <span style={{ fontSize:15, fontWeight:700, color:C.accent }}>🧵 ส่วนที่ 1 — เนื้อผ้า</span>
+          <button style={{ ...s.btnGhost, padding:"3px 10px", fontSize:13 }}
+            onClick={() => setForm(f=>({...f, fabricItems:[...(f.fabricItems||[]), {fabricId:data.fabrics[0]?.id||"", qtyPerUnit:1, note:""}]}))}>
+            + เพิ่มผ้า
+          </button>
         </div>
-        {form.accessories.map((a,i) => (
-          <div key={i} style={{ display:"flex", gap:8, marginBottom:6, alignItems:"center" }}>
-            <select style={{ ...s.select, flex:2 }} value={a.accId} onChange={e=>setForm(f=>({...f,accessories:f.accessories.map((x,idx)=>idx===i?{...x,accId:e.target.value}:x)}))}>
-              {data.accessories.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+        {(form.fabricItems||[]).map((fi, i) => (
+          <div key={i} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr auto", gap:8, marginBottom:8, alignItems:"center" }}>
+            <select style={{ ...s.select, fontSize:14 }} value={fi.fabricId}
+              onChange={e=>setForm(f=>({...f, fabricItems:f.fabricItems.map((x,idx)=>idx===i?{...x,fabricId:e.target.value}:x)}))}>
+              <option value="">— เลือกผ้า —</option>
+              {data.fabrics.map(fab => <option key={fab.id} value={fab.id}>{fab.code||fab.id} — {fab.name}</option>)}
             </select>
-            <input style={{ ...s.input, flex:1 }} type="number" step="0.1" value={a.qtyPerUnit} onChange={e=>setForm(f=>({...f,accessories:f.accessories.map((x,idx)=>idx===i?{...x,qtyPerUnit:parseFloat(e.target.value)||1}:x)}))} placeholder="/ตัว"/>
-            <button onClick={() => setForm(f=>({...f,accessories:f.accessories.filter((_,idx)=>idx!==i)}))} style={{ ...s.btnGhost, padding:"5px 10px", color:C.err }}>×</button>
+            <input style={{ ...s.input, fontSize:14 }} type="number" step="0.1" placeholder="ปริมาณ/ตัว"
+              value={fi.qtyPerUnit}
+              onChange={e=>setForm(f=>({...f, fabricItems:f.fabricItems.map((x,idx)=>idx===i?{...x,qtyPerUnit:e.target.value}:x)}))}/>
+            <input style={{ ...s.input, fontSize:14 }} placeholder="หมายเหตุ (เช่น ผ้าหลัก)"
+              value={fi.note||""}
+              onChange={e=>setForm(f=>({...f, fabricItems:f.fabricItems.map((x,idx)=>idx===i?{...x,note:e.target.value}:x)}))}/>
+            <button onClick={()=>setForm(f=>({...f, fabricItems:f.fabricItems.filter((_,idx)=>idx!==i)}))}
+              style={{ ...s.btnGhost, padding:"5px 10px", color:C.err, fontSize:14 }}>×</button>
           </div>
         ))}
+        {(form.fabricItems||[]).length === 0 && (
+          <div style={{ color:C.muted, fontSize:13, textAlign:"center", padding:8 }}>กด + เพิ่มผ้า เพื่อเพิ่มรายการครับ</div>
+        )}
       </div>
+
+      {/* ── ส่วนที่ 2: Accessories / Trim ── */}
+      <div style={{ marginTop:12, background:"#060b16", borderRadius:10, padding:14, border:`1px solid ${C.accent2}40` }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+          <span style={{ fontSize:15, fontWeight:700, color:C.accent2 }}>🔩 ส่วนที่ 2 — Accessories / Trim</span>
+          <button style={{ ...s.btnGhost, padding:"3px 10px", fontSize:13 }}
+            onClick={() => setForm(f=>({...f, accessories:[...(f.accessories||[]), {accId:data.accessories[0]?.id||"", qtyPerUnit:1}]}))}>
+            + เพิ่ม
+          </button>
+        </div>
+        {(form.accessories||[]).map((a, i) => (
+          <div key={i} style={{ display:"grid", gridTemplateColumns:"2fr 1fr auto", gap:8, marginBottom:8, alignItems:"center" }}>
+            <select style={{ ...s.select, fontSize:14 }} value={a.accId}
+              onChange={e=>setForm(f=>({...f, accessories:f.accessories.map((x,idx)=>idx===i?{...x,accId:e.target.value}:x)}))}>
+              <option value="">— เลือก Accessories —</option>
+              {data.accessories.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+            </select>
+            <input style={{ ...s.input, fontSize:14 }} type="number" step="0.1" placeholder="จำนวน/ตัว"
+              value={a.qtyPerUnit}
+              onChange={e=>setForm(f=>({...f, accessories:f.accessories.map((x,idx)=>idx===i?{...x,qtyPerUnit:parseFloat(e.target.value)||1}:x)}))}/>
+            <button onClick={()=>setForm(f=>({...f, accessories:f.accessories.filter((_,idx)=>idx!==i)}))}
+              style={{ ...s.btnGhost, padding:"5px 10px", color:C.err, fontSize:14 }}>×</button>
+          </div>
+        ))}
+        {(form.accessories||[]).length === 0 && (
+          <div style={{ color:C.muted, fontSize:13, textAlign:"center", padding:8 }}>ยังไม่มี Accessories</div>
+        )}
+      </div>
+
+      {/* ── ส่วนที่ 3: อะไหล่ ── */}
+      <div style={{ marginTop:12, background:"#060b16", borderRadius:10, padding:14, border:`1px solid ${C.purple}40` }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+          <span style={{ fontSize:15, fontWeight:700, color:C.purple||"#a855f7" }}>🔧 ส่วนที่ 3 — อะไหล่</span>
+          <button style={{ ...s.btnGhost, padding:"3px 10px", fontSize:13 }}
+            onClick={() => setForm(f=>({...f, spareItems:[...(f.spareItems||[]), {name:"", qtyPerUnit:1, unit:"pcs", note:""}]}))}>
+            + เพิ่ม
+          </button>
+        </div>
+        {(form.spareItems||[]).map((sp, i) => (
+          <div key={i} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr auto", gap:8, marginBottom:8, alignItems:"center" }}>
+            <input style={{ ...s.input, fontSize:14 }} placeholder="ชื่ออะไหล่"
+              value={sp.name||""}
+              onChange={e=>setForm(f=>({...f, spareItems:f.spareItems.map((x,idx)=>idx===i?{...x,name:e.target.value}:x)}))}/>
+            <input style={{ ...s.input, fontSize:14 }} type="number" step="0.1" placeholder="จำนวน/ตัว"
+              value={sp.qtyPerUnit||""}
+              onChange={e=>setForm(f=>({...f, spareItems:f.spareItems.map((x,idx)=>idx===i?{...x,qtyPerUnit:e.target.value}:x)}))}/>
+            <input style={{ ...s.input, fontSize:14 }} placeholder="หน่วย"
+              value={sp.unit||""}
+              onChange={e=>setForm(f=>({...f, spareItems:f.spareItems.map((x,idx)=>idx===i?{...x,unit:e.target.value}:x)}))}/>
+            <input style={{ ...s.input, fontSize:14 }} placeholder="หมายเหตุ"
+              value={sp.note||""}
+              onChange={e=>setForm(f=>({...f, spareItems:f.spareItems.map((x,idx)=>idx===i?{...x,note:e.target.value}:x)}))}/>
+            <button onClick={()=>setForm(f=>({...f, spareItems:f.spareItems.filter((_,idx)=>idx!==i)}))}
+              style={{ ...s.btnGhost, padding:"5px 10px", color:C.err, fontSize:14 }}>×</button>
+          </div>
+        ))}
+        {(form.spareItems||[]).length === 0 && (
+          <div style={{ color:C.muted, fontSize:13, textAlign:"center", padding:8 }}>ยังไม่มีอะไหล่</div>
+        )}
+      </div>
+
       <div style={{ display:"flex", gap:8, marginTop:16 }}>
         <button style={s.btn()} onClick={save}>{t("save")}</button>
         <button style={s.btnGhost} onClick={() => setModal(false)}>{t("cancel")}</button>
