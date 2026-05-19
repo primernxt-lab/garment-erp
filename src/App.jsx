@@ -1812,6 +1812,7 @@ function BOMModule({ activeOrderId }) {
       </Card>
 
       {ord && (() => {
+        try {
         const company = "PRIMER GROUP NXT";
         const slots = Array.isArray(ord.slots) ? ord.slots : [];
         const screenItems = slots.flatMap(sl => Array.isArray(sl.screenItems) ? sl.screenItems : []);
@@ -1973,17 +1974,30 @@ function BOMModule({ activeOrderId }) {
 
             {/* Print button */}
             <div style={{ marginTop:20, textAlign:"center" }}>
-              <button onClick={() => window.print()} style={{ ...s.btn(), background:"#f59e0b", color:"#000", padding:"10px 32px", fontSize:15, fontWeight:800 }}>
+              <button onClick={() => {
+                const el = document.getElementById("prod-sheet");
+                if (!el) return;
+                const w = window.open("","_blank");
+                w.document.write(`<html><head><title>ใบผลิตงาน ${ord.orderNo||ord.id}</title>
+                  <style>body{font-family:monospace;padding:24px;} img{max-width:100%;} @media print{button{display:none;}}</style>
+                  </head><body>${el.innerHTML}</body></html>`);
+                w.document.close();
+                w.focus();
+                setTimeout(()=>w.print(), 500);
+              }} style={{ ...s.btn(), background:"#f59e0b", color:"#000", padding:"10px 32px", fontSize:15, fontWeight:800 }}>
                 🖨 พิมพ์ใบผลิตงาน
               </button>
             </div>
           </div>
         );
+        } catch(err) {
+          return <div style={{ padding:24, color:C.err, background:C.err+"15", borderRadius:8 }}>
+            ⚠️ Error แสดงใบผลิตงาน: {err?.message||"Unknown error"} — กรุณา refresh ครับ
+          </div>;
+        }
       })()}
       {!ord && <div style={{ textAlign:"center", padding:48, color:C.muted }}>กรุณาเลือก Order ด้านบนครับ</div>}
     </div>}
-
-    {/* PO Modal */}
     {poModal && <Modal title="สร้าง Purchase Order" onClose={() => setPoModal(false)}>
       <Row2>
         <Field label="วัตถุดิบ"><input style={s.input} value={poForm.itemName||""} onChange={e=>setPoForm(f=>({...f,itemName:e.target.value}))} placeholder="ชื่อวัตถุดิบ"/></Field>
