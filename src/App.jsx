@@ -1575,7 +1575,7 @@ function BOMModule({ activeOrderId }) {
 
   return <div>
     <SectionHead title="📦 BOM" sub={`Bill of Materials · เปรียบ BOM vs สั่งซื้อจริง${pat?` · BOM v${pat.bomVersion||1}`:""}`}/>
-    <TabBar tabs={[["bom","📋 BOM"],["actual","🛒 สั่งซื้อจริง vs BOM"],["summary",`📊 สรุป (${allSaved.length})`]]} active={activeTab} setActive={setActiveTab}/>
+    <TabBar tabs={[["bom","📋 BOM"],["actual","🛒 สั่งซื้อจริง vs BOM"],["summary",`📊 สรุป (${allSaved.length})`],["prodsheet","🖨 ใบผลิตงาน"]]} active={activeTab} setActive={setActiveTab}/>
 
     {/* ── BOM TAB ── */}
     {activeTab==="bom" && <div>
@@ -1798,6 +1798,189 @@ function BOMModule({ activeOrderId }) {
           );
         })}
       </div>}
+    </div>}
+
+    {/* ── PRODUCTION ORDER SHEET TAB ── */}
+    {activeTab==="prodsheet" && <div>
+      {/* Order selector */}
+      <Card style={{ marginBottom:14 }}>
+        <Field label="เลือก Order สำหรับใบผลิตงาน">
+          <select style={s.select} value={selOrder} onChange={e=>setSelOrder(e.target.value)}>
+            {data.orders.map(o => <option key={o.id} value={o.id}>{o.orderNo||o.id} — {o.customer} ({o.qty} ตัว)</option>)}
+          </select>
+        </Field>
+      </Card>
+
+      {ord && (() => {
+        const company = "PRIMER GROUP NXT";
+        const slots = Array.isArray(ord.slots) ? ord.slots : [];
+        const screenItems = slots.flatMap(sl => Array.isArray(sl.screenItems) ? sl.screenItems : []);
+        const fabrics = stockItems.filter(x=>x.type==="Fabric");
+        const accs    = stockItems.filter(x=>x.type!=="Fabric");
+
+        return (
+          <div id="prod-sheet" style={{ background:"#fff", color:"#111", borderRadius:12, padding:32, fontFamily:"monospace", border:`2px solid ${C.accent}` }}>
+            {/* Header */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", borderBottom:"2px solid #f59e0b", paddingBottom:16, marginBottom:20 }}>
+              <div>
+                <div style={{ fontSize:22, fontWeight:900, color:"#f59e0b", letterSpacing:2 }}>{company}</div>
+                <div style={{ fontSize:13, color:"#666", marginTop:2 }}>ใบผลิตงาน (Production Order Sheet)</div>
+              </div>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:18, fontWeight:800, color:"#111" }}>{ord.orderNo||ord.id}</div>
+                <div style={{ fontSize:12, color:"#666" }}>วันที่: {ord.date||today()}</div>
+                <div style={{ fontSize:12, color:"#666" }}>กำหนดส่ง: {ord.dueDate||"—"}</div>
+              </div>
+            </div>
+
+            {/* ข้อมูลหลัก */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16, marginBottom:20 }}>
+              <div style={{ background:"#fef3c7", borderRadius:8, padding:"10px 14px", border:"1px solid #f59e0b" }}>
+                <div style={{ fontSize:11, color:"#666", textTransform:"uppercase", marginBottom:4 }}>🏢 ลูกค้า / บริษัท</div>
+                <div style={{ fontSize:16, fontWeight:800 }}>{ord.customer||"—"}</div>
+                {ord.customerAddress && <div style={{ fontSize:12, color:"#666", marginTop:2 }}>{ord.customerAddress}</div>}
+              </div>
+              <div style={{ background:"#f0fdf4", borderRadius:8, padding:"10px 14px", border:"1px solid #22c55e" }}>
+                <div style={{ fontSize:11, color:"#666", textTransform:"uppercase", marginBottom:4 }}>📦 จำนวนผลิต</div>
+                <div style={{ fontSize:28, fontWeight:900, color:"#16a34a" }}>{ord.qty} <span style={{ fontSize:16 }}>ตัว</span></div>
+              </div>
+              <div style={{ background:"#eff6ff", borderRadius:8, padding:"10px 14px", border:"1px solid #3b82f6" }}>
+                <div style={{ fontSize:11, color:"#666", textTransform:"uppercase", marginBottom:4 }}>⚡ Priority / Status</div>
+                <div style={{ fontSize:15, fontWeight:700, color:"#2563eb" }}>{ord.priority||"normal"}</div>
+                <div style={{ fontSize:13, color:"#666" }}>{ord.status}</div>
+              </div>
+            </div>
+
+            {/* Pattern พร้อมรูป */}
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:14, fontWeight:800, color:"#111", borderBottom:"1px solid #e5e7eb", paddingBottom:6, marginBottom:12 }}>
+                🧩 PATTERN / STYLE
+              </div>
+              {slots.length > 0 ? slots.map((sl,i) => {
+                const slPat = data.patterns.find(p=>p.id===sl.patternId);
+                const imgSrc = sl.imagePreview || slPat?.imagePreview;
+                return (
+                  <div key={i} style={{ display:"flex", gap:16, marginBottom:12, padding:"10px 14px", background:"#f9fafb", borderRadius:8, border:"1px solid #e5e7eb" }}>
+                    {imgSrc
+                      ? <img src={imgSrc} alt="" style={{ width:80, height:80, objectFit:"cover", borderRadius:8, border:"2px solid #f59e0b", flexShrink:0 }}/>
+                      : <div style={{ width:80, height:80, borderRadius:8, background:"#e5e7eb", display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, flexShrink:0 }}>📐</div>
+                    }
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:15, fontWeight:800 }}>{slPat?.styleCode||""} {slPat?.name||"—"}</div>
+                      <div style={{ fontSize:13, color:"#666", marginTop:3 }}>
+                        สี: <strong>{sl.colorNote||"—"}</strong> &nbsp;·&nbsp;
+                        หมวด: {slPat?.category||"—"}
+                      </div>
+                      {Object.keys(sl.sizeBreakdown||{}).length > 0 && (
+                        <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:6 }}>
+                          {Object.entries(sl.sizeBreakdown||{}).filter(([,v])=>parseInt(v)>0).map(([sz,qty]) => (
+                            <span key={sz} style={{ background:"#f59e0b20", border:"1px solid #f59e0b", borderRadius:4, padding:"2px 8px", fontSize:12, fontWeight:700 }}>
+                              {sz}: {qty}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {sl.slotNote && <div style={{ fontSize:12, color:"#666", marginTop:4 }}>📝 {sl.slotNote}</div>}
+                    </div>
+                  </div>
+                );
+              }) : (
+                <div style={{ padding:12, background:"#f9fafb", borderRadius:8, color:"#666" }}>
+                  {pat ? `${pat.styleCode||""} ${pat.name}` : "—"}
+                </div>
+              )}
+            </div>
+
+            {/* Screen/EMB พร้อมรูป */}
+            {screenItems.filter(x=>x.printTypeId||x.position).length > 0 && (
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:14, fontWeight:800, color:"#111", borderBottom:"1px solid #e5e7eb", paddingBottom:6, marginBottom:12 }}>
+                  🖨 ลายสกรีน / EMB
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  {screenItems.filter(x=>x.printTypeId||x.position).map((item,i) => {
+                    const pt = data.printTypes.find(p=>p.id===item.printTypeId);
+                    return (
+                      <div key={i} style={{ display:"flex", gap:14, alignItems:"center", padding:"8px 12px", background:"#f9fafb", borderRadius:8, border:"1px solid #e5e7eb" }}>
+                        {pt?.imagePreview
+                          ? <img src={pt.imagePreview} alt="" style={{ width:56, height:56, objectFit:"cover", borderRadius:6, border:"1px solid #f59e0b", flexShrink:0 }}/>
+                          : <div style={{ width:56, height:56, borderRadius:6, background:"#e5e7eb", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0 }}>🖨</div>
+                        }
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:14, fontWeight:800 }}>#{i+1} {pt?.name||"—"}</div>
+                          <div style={{ fontSize:13, color:"#666" }}>ตำแหน่ง: <strong>{item.position||"—"}</strong></div>
+                        </div>
+                        <div style={{ fontSize:16, fontWeight:800, color:"#16a34a" }}>฿{parseFloat(item.price)||pt?.costPerUnit||0}/ตัว</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* วัตถุดิบ */}
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:14, fontWeight:800, color:"#111", borderBottom:"1px solid #e5e7eb", paddingBottom:6, marginBottom:12 }}>
+                📦 วัตถุดิบที่ใช้ในการผลิต
+              </div>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+                <thead>
+                  <tr style={{ background:"#f59e0b20" }}>
+                    {["#","รายการ","ประเภท","จำนวนที่ต้องการ","หน่วย","ราคา/unit","ต้นทุนรวม"].map(h => (
+                      <th key={h} style={{ padding:"8px 10px", textAlign:"left", borderBottom:"2px solid #f59e0b", fontSize:12, fontWeight:800 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {stockItems.map((item,i) => (
+                    <tr key={i} style={{ borderBottom:"1px solid #e5e7eb", background:i%2===0?"#fff":"#f9fafb" }}>
+                      <td style={{ padding:"8px 10px", color:"#666" }}>{i+1}</td>
+                      <td style={{ padding:"8px 10px", fontWeight:700 }}>{item.name}</td>
+                      <td style={{ padding:"8px 10px" }}><span style={{ background:item.type==="Fabric"?"#fef3c7":"#eff6ff", border:`1px solid ${item.type==="Fabric"?"#f59e0b":"#3b82f6"}`, borderRadius:4, padding:"2px 8px", fontSize:11 }}>{item.type}</span></td>
+                      <td style={{ padding:"8px 10px", fontWeight:800, color:"#2563eb" }}>{item.needed}</td>
+                      <td style={{ padding:"8px 10px", color:"#666" }}>{item.unit}</td>
+                      <td style={{ padding:"8px 10px" }}>฿{fmt(item.costPerUnit)}</td>
+                      <td style={{ padding:"8px 10px", fontWeight:800, color:"#16a34a" }}>฿{fmt(item.totalCost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background:"#f59e0b20", borderTop:"2px solid #f59e0b" }}>
+                    <td colSpan={6} style={{ padding:"10px", fontWeight:900, fontSize:14 }}>ต้นทุน BOM รวม</td>
+                    <td style={{ padding:"10px", fontWeight:900, fontSize:16, color:"#b45309" }}>฿{fmt(stockItems.reduce((s,x)=>s+x.totalCost,0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Special Notice */}
+            {ord.specialNotice && (
+              <div style={{ padding:"10px 14px", background:"#fef3c7", border:"1px solid #f59e0b", borderRadius:8, marginBottom:16 }}>
+                <div style={{ fontSize:12, fontWeight:800, color:"#92400e", marginBottom:4 }}>📝 หมายเหตุพิเศษ</div>
+                <div style={{ fontSize:13, color:"#111" }}>{ord.specialNotice}</div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div style={{ borderTop:"2px solid #e5e7eb", paddingTop:16, display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:20 }}>
+              {["ผู้อนุมัติ / Approved by","ฝ่ายผลิต / Production","QC / ตรวจสอบ"].map(label => (
+                <div key={label} style={{ textAlign:"center" }}>
+                  <div style={{ height:48, borderBottom:"1px solid #111", marginBottom:6 }}/>
+                  <div style={{ fontSize:12, color:"#666" }}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Print button */}
+            <div style={{ marginTop:20, textAlign:"center" }}>
+              <button onClick={() => window.print()} style={{ ...s.btn(), background:"#f59e0b", color:"#000", padding:"10px 32px", fontSize:15, fontWeight:800 }}>
+                🖨 พิมพ์ใบผลิตงาน
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+      {!ord && <div style={{ textAlign:"center", padding:48, color:C.muted }}>กรุณาเลือก Order ด้านบนครับ</div>}
     </div>}
 
     {/* PO Modal */}
