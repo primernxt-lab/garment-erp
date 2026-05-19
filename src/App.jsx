@@ -2065,10 +2065,12 @@ function InventoryModule() {
     const newLog   = [...(data.stockLog||[])];
     // Try to match bill items to fabric/accessory by name
     bill.items.forEach(item => {
-      const matched = allItems.find(i =>
-        i.name.toLowerCase().includes((item.materialName||"").toLowerCase()) ||
-        (item.materialName||"").toLowerCase().includes(i.name.toLowerCase())
-      );
+      const matName = (item.materialName||"").toLowerCase();
+      if (!matName) return;
+      const matched = allItems.find(i => {
+        const iName = (i.name||"").toLowerCase();
+        return iName.includes(matName) || matName.includes(iName);
+      });
       if (matched) {
         const qty   = parseFloat(item.qty) || 0;
         const after = (newStock[matched.id]||0) + qty;
@@ -2148,10 +2150,11 @@ function InventoryModule() {
           </div>
           <div style={{ marginBottom:10 }}>
             {(bill.items||[]).map((item,i) => {
-              const matched = allItems.find(a =>
-                a.name.toLowerCase().includes((item.materialName||"").toLowerCase()) ||
-                (item.materialName||"").toLowerCase().includes(a.name.toLowerCase())
-              );
+              const matName = (item.materialName||"").toLowerCase();
+              const matched = matName ? allItems.find(a => {
+                const aName = (a.name||"").toLowerCase();
+                return aName.includes(matName) || matName.includes(aName);
+              }) : null;
               return (
                 <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"5px 8px", borderRadius:6, background:"#060b16", marginBottom:4, fontSize:13 }}>
                   <span style={{ color:C.text }}>{item.materialName}</span>
