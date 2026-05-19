@@ -215,6 +215,7 @@ function DataProvider({ children }) {
     printTypes:INIT_PRINT_TYPES, suppliers:INIT_SUPPLIERS, costRates:INIT_COST_RATES,
     orders:INIT_ORDERS, stock:{...INIT_STOCK}, bills:INIT_BILLS,
     saleInvoices:INIT_SALE_INVOICES, stockLog:INIT_STOCK_LOG, purchaseOrders:INIT_POS,
+    packaging:[],
   });
   const [itemMaster] = useState(PRIMER_ITEMS);
   const [loading, setLoading] = useState(true);
@@ -565,26 +566,25 @@ function PatternMaster({ data, setData }) {
         )}
       </div>
 
-      {/* ── ส่วนที่ 3: อะไหล่ ── */}
+      {/* ── ส่วนที่ 3: บรรจุภัณฑ์ / Packaging ── */}
       <div style={{ marginTop:12, background:"#060b16", borderRadius:10, padding:14, border:`1px solid ${C.purple}40` }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-          <span style={{ fontSize:15, fontWeight:700, color:C.purple||"#a855f7" }}>🔧 ส่วนที่ 3 — อะไหล่</span>
+          <span style={{ fontSize:15, fontWeight:700, color:C.purple||"#a855f7" }}>📦 ส่วนที่ 3 — บรรจุภัณฑ์ / Packaging</span>
           <button style={{ ...s.btnGhost, padding:"3px 10px", fontSize:13 }}
-            onClick={() => setForm(f=>({...f, spareItems:[...(f.spareItems||[]), {name:"", qtyPerUnit:1, unit:"pcs", note:""}]}))}>
+            onClick={() => setForm(f=>({...f, spareItems:[...(f.spareItems||[]), {pkgId:"", qtyPerUnit:1, note:""}]}))}>
             + เพิ่ม
           </button>
         </div>
         {(form.spareItems||[]).map((sp, i) => (
-          <div key={i} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr auto", gap:8, marginBottom:8, alignItems:"center" }}>
-            <input style={{ ...s.input, fontSize:14 }} placeholder="ชื่ออะไหล่"
-              value={sp.name||""}
-              onChange={e=>setForm(f=>({...f, spareItems:f.spareItems.map((x,idx)=>idx===i?{...x,name:e.target.value}:x)}))}/>
+          <div key={i} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr auto", gap:8, marginBottom:8, alignItems:"center" }}>
+            <select style={{ ...s.select, fontSize:14 }} value={sp.pkgId||""}
+              onChange={e=>setForm(f=>({...f, spareItems:f.spareItems.map((x,idx)=>idx===i?{...x,pkgId:e.target.value}:x)}))}>
+              <option value="">— เลือก Packaging —</option>
+              {(data.packaging||[]).map(pkg => <option key={pkg.id} value={pkg.id}>{pkg.name} ({pkg.unit||"pcs"})</option>)}
+            </select>
             <input style={{ ...s.input, fontSize:14 }} type="number" step="0.1" placeholder="จำนวน/ตัว"
               value={sp.qtyPerUnit||""}
               onChange={e=>setForm(f=>({...f, spareItems:f.spareItems.map((x,idx)=>idx===i?{...x,qtyPerUnit:e.target.value}:x)}))}/>
-            <input style={{ ...s.input, fontSize:14 }} placeholder="หน่วย"
-              value={sp.unit||""}
-              onChange={e=>setForm(f=>({...f, spareItems:f.spareItems.map((x,idx)=>idx===i?{...x,unit:e.target.value}:x)}))}/>
             <input style={{ ...s.input, fontSize:14 }} placeholder="หมายเหตุ"
               value={sp.note||""}
               onChange={e=>setForm(f=>({...f, spareItems:f.spareItems.map((x,idx)=>idx===i?{...x,note:e.target.value}:x)}))}/>
@@ -593,7 +593,7 @@ function PatternMaster({ data, setData }) {
           </div>
         ))}
         {(form.spareItems||[]).length === 0 && (
-          <div style={{ color:C.muted, fontSize:13, textAlign:"center", padding:8 }}>ยังไม่มีอะไหล่</div>
+          <div style={{ color:C.muted, fontSize:13, textAlign:"center", padding:8 }}>ยังไม่มีบรรจุภัณฑ์ — กด + เพิ่ม ครับ</div>
         )}
       </div>
 
@@ -634,19 +634,30 @@ function MasterModule() {
       });
       db.upsertAccessory(r);
     }
+    if (modal==="packaging") {
+      const id = form.id||genId("PKG");
+      const r = {...form,id,costPerUnit:parseFloat(form.costPerUnit)||0,minQty:parseFloat(form.minQty)||0};
+      setData(d => {
+        const isNew = !(d.packaging||[]).find(x=>x.id===id);
+        const newStock = isNew ? {...d.stock, [id]: 0} : d.stock;
+        const newLog = isNew ? [...(d.stockLog||[]), {id:genId("LOG"),itemId:id,itemName:r.name,type:"in",qty:0,reason:"เพิ่มรายการใหม่จาก Master",date:today(),balAfter:0}] : d.stockLog;
+        return {...d, packaging:[...(d.packaging||[]).filter(x=>x.id!==id),r], stock:newStock, stockLog:newLog};
+      });
+    }
     if (modal==="print")    { const id=form.id||genId("PT");const r={...form,id,costPerUnit:parseFloat(form.costPerUnit)||0}; setData(d=>({...d,printTypes:[...d.printTypes.filter(x=>x.id!==id),r]})); db.upsertPrintType(r); }
     if (modal==="supplier") { const id=form.id||genId("S"); const r={...form,id,creditDays:parseInt(form.creditDays)||30}; setData(d=>({...d,suppliers:[...d.suppliers.filter(x=>x.id!==id),r]})); db.upsertSupplier(r); }
     if (modal==="rates")    { setData(d=>({...d,costRates:{...d.costRates,overheadRate:parseFloat(form.overheadRate),laborCutRate:parseFloat(form.laborCutRate),laborSewRate:parseFloat(form.laborSewRate),laborQCRate:parseFloat(form.laborQCRate)}})); }
     setModal(null);
   };
   const del = (type,id) => {
-    if (type==="fabric")   { setData(d=>({...d,fabrics:d.fabrics.filter(x=>x.id!==id)})); db.deleteFabric(id); }
-    if (type==="acc")      { setData(d=>({...d,accessories:d.accessories.filter(x=>x.id!==id)})); db.deleteAccessory(id); }
-    if (type==="print")    { setData(d=>({...d,printTypes:d.printTypes.filter(x=>x.id!==id)})); db.deletePrintType(id); }
-    if (type==="supplier") { setData(d=>({...d,suppliers:d.suppliers.filter(x=>x.id!==id)})); db.deleteSupplier(id); }
+    if (type==="fabric")    { setData(d=>({...d,fabrics:d.fabrics.filter(x=>x.id!==id)})); db.deleteFabric(id); }
+    if (type==="acc")       { setData(d=>({...d,accessories:d.accessories.filter(x=>x.id!==id)})); db.deleteAccessory(id); }
+    if (type==="packaging") { setData(d=>({...d,packaging:(d.packaging||[]).filter(x=>x.id!==id)})); }
+    if (type==="print")     { setData(d=>({...d,printTypes:d.printTypes.filter(x=>x.id!==id)})); db.deletePrintType(id); }
+    if (type==="supplier")  { setData(d=>({...d,suppliers:d.suppliers.filter(x=>x.id!==id)})); db.deleteSupplier(id); }
   };
 
-  const tabs = [{id:"fabric",label:"🧵 Fabric"},{id:"acc",label:"🔩 Accessories"},{id:"pattern",label:"📐 Pattern/BOM"},{id:"print",label:"🖨 Print/EMB"},{id:"supplier",label:"🏭 Supplier"},{id:"rates",label:"⚙️ Cost Rates"}];
+  const tabs = [{id:"fabric",label:"🧵 Fabric"},{id:"acc",label:"🔩 Accessories"},{id:"packaging",label:"📦 Packaging"},{id:"pattern",label:"📐 Pattern/BOM"},{id:"print",label:"🖨 Print/EMB"},{id:"supplier",label:"🏭 Supplier"},{id:"rates",label:"⚙️ Cost Rates"}];
 
   return <div>
     <SectionHead title="⚙️ MASTER DATA" sub="Fabrics · Accessories · Patterns · Print · Suppliers · Cost Rates"/>
@@ -722,6 +733,78 @@ function MasterModule() {
         </table>
       </div>
     </Card>}
+
+    {/* ── PACKAGING ── */}
+    {tab==="packaging" && <Card>
+      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
+        <span style={{ fontSize:17, fontWeight:700, color:C.text }}>Packaging Master</span>
+        <button style={s.btn()} onClick={() => { setModal("packaging"); setForm({}); }}>{t("add")}</button>
+      </div>
+      <div style={{ overflowX:"auto" }}>
+        <table style={{ width:"100%", borderCollapse:"collapse", minWidth:600 }}>
+          <thead><tr>{["รูป","ID","ชื่อ","หน่วย","ราคา/unit","Min Stock","Stock ปัจจุบัน",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+          <tbody>{(data.packaging||[]).map(pkg => {
+            const qty = data.stock[pkg.id]||0;
+            const isLow = qty < (pkg.minQty||0);
+            return <tr key={pkg.id}>
+              <td style={{ ...s.td, width:48 }}>
+                {pkg.imagePreview
+                  ? <img src={pkg.imagePreview} alt="" style={{ width:40, height:40, objectFit:"cover", borderRadius:6, border:`1px solid ${C.border}` }}/>
+                  : <div style={{ width:40, height:40, borderRadius:6, background:"#060b16", border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center", color:C.muted, fontSize:16 }}>📦</div>
+                }
+              </td>
+              <td style={{ ...s.td, color:C.muted, fontFamily:"monospace" }}>{pkg.id}</td>
+              <td style={s.td}>{pkg.name}</td>
+              <td style={s.td}>{pkg.unit||"pcs"}</td>
+              <td style={{ ...s.td, color:C.accent }}>฿{fmt(pkg.costPerUnit)}</td>
+              <td style={s.td}>{pkg.minQty||0}</td>
+              <td style={{ ...s.td, fontWeight:700, color:isLow?C.err:C.ok }}>{qty.toLocaleString()}</td>
+              <td style={s.td}>
+                <button onClick={() => { setModal("packaging"); setForm(pkg); }} style={{ ...s.btnGhost, padding:"3px 8px", marginRight:4, fontSize:17 }}>{t("edit")}</button>
+                <button onClick={() => del("packaging",pkg.id)} style={{ ...s.btnGhost, padding:"3px 8px", color:C.err, borderColor:C.err+"50", fontSize:17 }}>{t("del")}</button>
+              </td>
+            </tr>;
+          })}</tbody>
+        </table>
+        {(data.packaging||[]).length===0 && <div style={{ textAlign:"center", padding:32, color:C.muted }}>ยังไม่มีรายการ Packaging — กด + Add ครับ</div>}
+      </div>
+    </Card>}
+
+    {/* ── PACKAGING MODAL ── */}
+    {modal==="packaging" && <Modal title={form.id?"แก้ไข Packaging":"เพิ่ม Packaging"} onClose={() => setModal(null)} wide>
+      <div style={{ display:"grid", gridTemplateColumns:"160px 1fr", gap:16 }}>
+        <div>
+          <div style={{ fontSize:12, color:C.muted, marginBottom:6, textTransform:"uppercase" }}>📷 รูปภาพ</div>
+          <label style={{ cursor:"pointer", display:"block" }}>
+            <div style={{ width:160, height:200, borderRadius:8, border:`2px dashed ${form.imagePreview?C.accent:C.border}`, background:"#060b16", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+              {form.imagePreview
+                ? <img src={form.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"contain" }}/>
+                : <div style={{ textAlign:"center", color:C.muted }}><div style={{ fontSize:28 }}>📦</div><div style={{ fontSize:11, marginTop:4 }}>คลิกอัปโหลด</div></div>
+              }
+            </div>
+            <input type="file" accept="image/*" style={{ display:"none" }} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>setForm(fm=>({...fm,imagePreview:ev.target.result}));r.readAsDataURL(f);}}/>
+          </label>
+          {form.imagePreview && <button onClick={()=>setForm(f=>({...f,imagePreview:null}))} style={{ ...s.btnGhost, marginTop:6, fontSize:11, padding:"2px 8px", color:C.err, borderColor:C.err+"50" }}>× ลบรูป</button>}
+        </div>
+        <Row2>
+          <Field label="ชื่อ"><input style={s.input} value={form.name||""} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="กล่อง, ถุง, แท็ก..."/></Field>
+          <Field label="หน่วย" half><input style={s.input} value={form.unit||"pcs"} onChange={e=>setForm(f=>({...f,unit:e.target.value}))}/></Field>
+          <Field label="ราคา/หน่วย (฿)" half><input style={s.input} type="number" value={form.costPerUnit||""} onChange={e=>setForm(f=>({...f,costPerUnit:e.target.value}))}/></Field>
+          <Field label="Min Stock" half><input style={s.input} type="number" value={form.minQty||""} onChange={e=>setForm(f=>({...f,minQty:e.target.value}))}/></Field>
+          <Field label="Supplier" half>
+            <select style={s.select} value={form.supplier||""} onChange={e=>setForm(f=>({...f,supplier:e.target.value}))}>
+              <option value="">— เลือก Supplier —</option>
+              {data.suppliers.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </Field>
+          <Field label="หมายเหตุ"><input style={s.input} value={form.note||""} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/></Field>
+        </Row2>
+      </div>
+      <div style={{ display:"flex", gap:8, marginTop:16 }}>
+        <button style={s.btn()} onClick={save}>{t("save")}</button>
+        <button style={s.btnGhost} onClick={() => setModal(null)}>{t("cancel")}</button>
+      </div>
+    </Modal>}
 
     {tab==="pattern" && <PatternMaster data={data} setData={setData}/>}
 
