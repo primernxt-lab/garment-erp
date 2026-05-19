@@ -1184,12 +1184,25 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
                         return (
                           <div key={idx} style={{ background:item.printTypeId?"#0a1020":"#060b16", borderRadius:10, border:`1px solid ${item.printTypeId?C.accent+"40":C.border}`, overflow:"hidden" }}>
                             <div style={{ display:"flex", gap:8, alignItems:"center", padding:"10px" }}>
-                              {/* รูป Print type */}
-                              <div style={{ width:38, height:38, borderRadius:6, overflow:"hidden", flexShrink:0, background:"#060b16", border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                                {itemPT?.imagePreview
-                                  ? <img src={itemPT.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
-                                  : <span style={{ fontSize:18 }}>🖨</span>
-                                }
+                              {/* รูป Print type — ใหญ่ขึ้น + tooltip รูปใหญ่ */}
+                              <div style={{ position:"relative", flexShrink:0 }}
+                                onMouseEnter={e => { if(itemPT?.imagePreview) e.currentTarget.querySelector('.img-tooltip').style.display='block'; }}
+                                onMouseLeave={e => { if(itemPT?.imagePreview) e.currentTarget.querySelector('.img-tooltip').style.display='none'; }}>
+                                <div style={{ width:52, height:52, borderRadius:8, overflow:"hidden", background:"#060b16", border:`2px solid ${itemPT?.imagePreview?C.accent:C.border}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                                  {itemPT?.imagePreview
+                                    ? <img src={itemPT.imagePreview} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+                                    : <div style={{ textAlign:"center" }}>
+                                        <div style={{ fontSize:20 }}>🖨</div>
+                                        <div style={{ fontSize:9, color:C.muted, marginTop:1 }}>ไม่มีรูป</div>
+                                      </div>
+                                  }
+                                </div>
+                                {/* Tooltip รูปใหญ่ */}
+                                <div className="img-tooltip" style={{ display:"none", position:"absolute", left:58, top:-10, zIndex:999, background:"#0a0f1e", border:`2px solid ${C.accent}`, borderRadius:10, padding:6, boxShadow:"0 8px 32px #000a" }}>
+                                  {itemPT?.imagePreview && <img src={itemPT.imagePreview} alt="" style={{ width:140, height:140, objectFit:"contain", borderRadius:6, display:"block" }}/>}
+                                  <div style={{ fontSize:12, color:C.accent, textAlign:"center", marginTop:4, fontWeight:700 }}>{itemPT?.name}</div>
+                                  {itemPT?.costPerUnit > 0 && <div style={{ fontSize:11, color:C.muted, textAlign:"center" }}>฿{itemPT.costPerUnit}/ตัว</div>}
+                                </div>
                               </div>
                               {/* Print type */}
                               <select style={{ ...s.select, flex:1.2, fontSize:14, padding:"7px 8px" }}
