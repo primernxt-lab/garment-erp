@@ -1126,8 +1126,19 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
                     </select>
                   </div>
                   <div>
-                    <div style={{ fontSize:14, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>Print / EMB</div>
-                    <select style={{ ...s.select, fontSize:15 }} value={slot.printTypeId} onChange={e=>updateSlot(i,"printTypeId",e.target.value)}>
+                    <div style={{ fontSize:14, color:C.muted, marginBottom:4, textTransform:"uppercase" }}>Print / EMB (หลัก)</div>
+                    <select style={{ ...s.select, fontSize:15 }} value={slot.printTypeId} onChange={e => {
+                      const ptId = e.target.value;
+                      const pt = data.printTypes.find(p=>p.id===ptId);
+                      updateSlot(i,"printTypeId",ptId);
+                      // Auto เพิ่มรายการแรกใน screenItems ถ้ายังไม่มี
+                      if (ptId && ptId !== "PT001") {
+                        const existing = Array.isArray(slot.screenItems) ? slot.screenItems : [];
+                        if (existing.length === 0) {
+                          updateSlot(i,"screenItems",[{position:"", price:pt?.costPerUnit||"", printTypeId:ptId}]);
+                        }
+                      }
+                    }}>
                       {data.printTypes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   </div>
