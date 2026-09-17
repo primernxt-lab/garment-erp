@@ -48,11 +48,12 @@ import { db, loadAllData } from './useSupabase.js';
 // ════════════════════════════════════════════════════════════════
 // § 1  THEME
 // ════════════════════════════════════════════════════════════════
+// Primer website dark-mode tokens (see primer-*.html :root / html.dark)
 const C = {
-  bg:"#080d18", card:"#0d1526", card2:"#060b16", border:"#1a2540",
-  accent:"#e8a020", accent2:"#3b82f6", ok:"#10b981", err:"#ef4444",
+  bg:"#0A0A0A", card:"#161616", card2:"#0A0A0A", border:"rgba(250,250,249,0.14)",
+  accent:"#E0B84A", accent2:"#4C6C9C", ok:"#10b981", err:"#ef4444",
   warn:"#f97316", purple:"#8b5cf6", cyan:"#06b6d4",
-  text:"#dde4f0", muted:"#4a5980", sub:"#8393b0",
+  text:"#FAFAF9", muted:"#A8A8AA", sub:"#A8A8AA",
 };
 const s = {
   input:{ width:"100%", padding:"9px 12px", background:"#060b16", border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:"inherit", fontSize:26, outline:"none", boxSizing:"border-box" },
@@ -2976,14 +2977,14 @@ function AppShell() {
   ];
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'JetBrains Mono','Courier New',monospace", color:C.text }}>
+    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'IBM Plex Sans Thai',sans-serif", color:C.text }}>
       {/* TOP NAV */}
-      <div style={{ background:"#0a1020", borderBottom:`1px solid ${C.border}`, padding:"0 16px", display:"flex", alignItems:"center", overflowX:"auto" }}>
+      <div style={{ background:C.card, borderBottom:`1px solid ${C.border}`, padding:"0 16px", display:"flex", alignItems:"center", overflowX:"auto" }}>
         <div style={{ padding:"14px 0", marginRight:20, display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
           <span style={{ fontSize:26 }}>🧵</span>
           <div>
-            <div style={{ fontSize:26, fontWeight:700, color:C.accent, letterSpacing:2, textTransform:"uppercase", whiteSpace:"nowrap" }}>{t("appName")}</div>
-            <div style={{ fontSize:17, color:C.muted, letterSpacing:1 }}>{t("appSub")}</div>
+            <div style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:26, fontWeight:700, color:C.accent, letterSpacing:2, textTransform:"uppercase", whiteSpace:"nowrap" }}>{t("appName")}</div>
+            <div style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:17, color:C.muted, letterSpacing:1 }}>{t("appSub")}</div>
           </div>
         </div>
         {navItems.map(m => (
