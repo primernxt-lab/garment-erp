@@ -3000,6 +3000,7 @@ function AppShell() {
           <span style={{ color:C.muted }}>⚠️ <strong style={{ color:lowStockCount>0?C.err:C.ok }}>{lowStockCount}</strong></span>
           <span style={{ color:C.muted }}>Stock: <strong style={{ color:C.ok }}>฿{(totalStockValue/1000).toFixed(0)}K</strong></span>
           <LangToggle lang={lang} setLang={setLang}/>
+          <a href="https://claude.ai/artifact/NpjNA8tCH1pyV24h4at9Jp" style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:13, color:C.muted, padding:"6px 12px", border:`1px solid ${C.border}`, borderRadius:20, textDecoration:"none" }}>← กลับเว็บหลัก</a>
         </div>
       </div>
 
