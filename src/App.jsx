@@ -1140,7 +1140,7 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
       patternId:    p0.patternId || data.patterns[0]?.id,
       printTypeId:  p0.printTypeId || "PT001",
       targetPrice:  parseFloat(form.targetPrice)||0,
-      totalAmount:  cost ? Math.round(cost.totalCost * 1.3) : 0,
+      totalAmount:  cost ? Math.round(cost.totalCost * 1.3) : Math.round((parseFloat(form.targetPrice)||0) * totalQty),
       slots,
       specialNotice: form.specialNotice || "",
     };
