@@ -174,6 +174,26 @@ const INIT_PRINT_TYPES = [
   {id:"PT007",name:"Heat Transfer",costPerUnit:28},
 ];
 const INIT_COST_RATES = { overheadRate:18, laborCutRate:1.0, laborSewRate:1.0, laborQCRate:1.0, currency:"THB" };
+
+// ── Job Type + Print Technique (Service) ──────────────────────────
+const JOB_TYPES = [
+  { id:"oem_odm",        label:"🏭 OEM/ODM",         desc:"ผลิตตามแบบลูกค้า (Custom) หรือ Pattern ที่บริษัทมี — 100% ว่าจ้างผลิตจาก Supplier" },
+  { id:"finished_goods", label:"📦 สินค้าสำเร็จรูป", desc:"ขายสินค้าที่มีอยู่แล้ว เลือกเพิ่มงานสกรีน/ปักได้" },
+  { id:"service",        label:"🖨 Service",         desc:"รับงานพิมพ์/ปักอย่างเดียว ลูกค้าส่งเสื้อเปล่ามาเอง" },
+];
+const INIT_PRINT_TECHNIQUES = [
+  { id:"dft",         label:"🖨️ DFT Screen",   inHouse:true  },
+  { id:"uvdft",       label:"🔆 UV DFT",        inHouse:false },
+  { id:"sublimation", label:"♨️ Sublimation",   inHouse:false },
+  { id:"silk",        label:"🎨 Silk Screen",   inHouse:false },
+  { id:"dtg",         label:"👕 DTG",           inHouse:false },
+  { id:"flexpu",      label:"🧲 Flex PU",       inHouse:false },
+  { id:"3dprint",     label:"🧊 3D Printing",   inHouse:false },
+];
+const SILK_TYPES = [
+  { id:"plastisol", label:"Plastisol" }, { id:"rubber", label:"Rubber" },
+  { id:"water", label:"สีน้ำ" }, { id:"discharge", label:"Discharge" },
+];
 const INIT_STOCK      = { F001:450, F002:220, F003:380, F004:150, A001:2500, A002:300, A003:800, A004:3000, A005:3000, A006:120, A007:2000, A008:2000 };
 const INIT_ORDERS     = [
   { id:"SO-2401", orderNo:"SO-2501-0001", customer:"Brand ABC", customerAddress:"88 ถนนสีลม กรุงเทพ 10500", patternId:"P002", printTypeId:"PT004", qty:500, targetPrice:280, totalAmount:140000, status:"confirmed", priority:"normal", deliveryChannel:"Flash Express", date:"2025-01-15", dueDate:"2025-03-15", slots:[{id:1,patternId:"P002",printTypeId:"PT004",qty:"500",colorNote:"Navy",sizeBreakdown:"S×100,M×200,L×150,XL×50",slotNote:"ปักโลโก้หน้า"}] },
@@ -214,6 +234,7 @@ function DataProvider({ children }) {
   const [data, setData] = useState({
     fabrics:INIT_FABRICS, accessories:INIT_ACCESSORIES, patterns:INIT_PATTERNS,
     printTypes:INIT_PRINT_TYPES, suppliers:INIT_SUPPLIERS, costRates:INIT_COST_RATES,
+    printTechniques:INIT_PRINT_TECHNIQUES,
     orders:INIT_ORDERS, stock:{...INIT_STOCK}, bills:INIT_BILLS,
     saleInvoices:INIT_SALE_INVOICES, stockLog:INIT_STOCK_LOG, purchaseOrders:INIT_POS,
     packaging:[],
@@ -658,7 +679,7 @@ function MasterModule() {
     if (type==="supplier")  { setData(d=>({...d,suppliers:d.suppliers.filter(x=>x.id!==id)})); db.deleteSupplier(id); }
   };
 
-  const tabs = [{id:"fabric",label:"🧵 Fabric"},{id:"acc",label:"🔩 Accessories"},{id:"packaging",label:"📦 Packaging"},{id:"pattern",label:"📐 Pattern/BOM"},{id:"print",label:"🖨 Print/EMB"},{id:"supplier",label:"🏭 Supplier"},{id:"rates",label:"⚙️ Cost Rates"}];
+  const tabs = [{id:"fabric",label:"🧵 Fabric"},{id:"acc",label:"🔩 Accessories"},{id:"packaging",label:"📦 Packaging"},{id:"pattern",label:"📐 Pattern/BOM"},{id:"print",label:"🖨 Print/EMB"},{id:"printtech",label:"⚡ Print Technique"},{id:"supplier",label:"🏭 Supplier"},{id:"rates",label:"⚙️ Cost Rates"}];
 
   return <div>
     <SectionHead title="⚙️ MASTER DATA" sub="Fabrics · Accessories · Patterns · Print · Suppliers · Cost Rates"/>
@@ -838,6 +859,28 @@ function MasterModule() {
             <button onClick={() => del("print",p.id)} style={{ ...s.btnGhost, padding:"3px 8px", color:C.err, borderColor:C.err+"50", fontSize:17 }}>{t("del")}</button>
           </td>
         </tr>)}</tbody>
+      </table>
+    </Card>}
+
+    {/* ── PRINT TECHNIQUE (In-house / Outsource toggle) ── */}
+    {tab==="printtech" && <Card>
+      <div style={{ marginBottom:12 }}>
+        <span style={{ fontSize:17, fontWeight:700, color:C.text }}>Print Technique — In-house / Outsource</span>
+        <div style={{ fontSize:13, color:C.muted, marginTop:4 }}>ใช้กำหนดว่าเทคนิคไหนบริษัททำเองได้ (In-house) เทคนิคไหนต้องจ้าง Supplier — ใช้ในหน้า Order → Service</div>
+      </div>
+      <table style={{ width:"100%", borderCollapse:"collapse" }}>
+        <thead><tr>{["เทคนิค","สถานะ",""].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+        <tbody>{(data.printTechniques||[]).map(pt => (
+          <tr key={pt.id}>
+            <td style={s.td}>{pt.label}</td>
+            <td style={s.td}><Tag text={pt.inHouse?"🏠 In-house":"🚚 Outsource"} color={pt.inHouse?C.ok:C.warn}/></td>
+            <td style={s.td}>
+              <button onClick={() => setData(d=>({...d, printTechniques:d.printTechniques.map(x=>x.id===pt.id?{...x,inHouse:!x.inHouse}:x)}))} style={s.btnSm(pt.inHouse?C.warn:C.ok)}>
+                สลับเป็น {pt.inHouse?"Outsource":"In-house"}
+              </button>
+            </td>
+          </tr>
+        ))}</tbody>
       </table>
     </Card>}
 
@@ -1065,7 +1108,7 @@ const PRIORITY_COLOR = { urgent:C.err, high:C.warn, normal:C.accent2, low:C.mute
 const DELIVERY_CHANNELS = ["Flash Express","Lalamove","Grab Express","Kerry Express","ไปเอง","ส่งเอง"];
 
 function OrderModule({ setActiveOrderId, setActiveModule }) {
-  const { data, setData } = useData();
+  const { data, setData, itemMaster } = useData();
   const [modal,     setModal]     = useState(false);
   const [tab,       setTab]       = useState("info");
   const [form,      setForm]      = useState({});
@@ -1172,7 +1215,10 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
             {filtered.length===0 && <tr><td colSpan={9} style={{ ...s.td, textAlign:"center", color:C.muted, padding:32 }}>ไม่มี Order</td></tr>}
             {filtered.map(o => (
               <tr key={o.id}>
-                <td style={{ ...s.td, color:C.accent, fontWeight:700, fontFamily:"monospace" }}>{o.orderNo||o.id}</td>
+                <td style={{ ...s.td, color:C.accent, fontWeight:700, fontFamily:"monospace" }}>
+                  {o.orderNo||o.id}
+                  {o.jobType && <div style={{ marginTop:4 }}><Tag text={JOB_TYPES.find(j=>j.id===o.jobType)?.label||o.jobType} color={C.accent2}/> {o.vat && <Tag text="VAT" color={C.purple}/>}</div>}
+                </td>
                 <td style={s.td}>
                   <div>{o.customer}</div>
                   {o.customerAddress && <div style={{ fontSize:26, color:C.muted, marginTop:2 }}>📍 {o.customerAddress.slice(0,30)}...</div>}
@@ -1199,7 +1245,7 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
     {/* CREATE / EDIT MODAL */}
     {modal && <Modal title={form.id ? `แก้ไข ${form.orderNo||form.id}` : "สร้าง Order ใหม่"} onClose={() => setModal(false)} wide>
       <div style={{ display:"flex", borderBottom:`1px solid ${C.border}`, marginBottom:16, marginTop:-8 }}>
-        {[["info","📋 ข้อมูล"],["slots",`🧩 รายการ (${slots.length})`],["notice","⚠️ หมายเหตุ"]].map(([id,label]) => (
+        {[["info","📋 ข้อมูล"],["jobtype","🏷 ประเภทงาน"],["slots",`🧩 รายการ (${slots.length})`],["notice","⚠️ หมายเหตุ"]].map(([id,label]) => (
           <button key={id} onClick={() => setTab(id)} style={{ flex:1, padding:"10px 8px", background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:17, fontWeight:600, color:tab===id?C.accent:C.muted, borderBottom:tab===id?`2px solid ${C.accent}`:"2px solid transparent" }}>{label}</button>
         ))}
       </div>
@@ -1226,7 +1272,156 @@ function OrderModule({ setActiveOrderId, setActiveModule }) {
             {DELIVERY_CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}
           </select>
         </Field>
+        <Field label="Mode ภาษี" half>
+          <div style={{ display:"flex", gap:8 }}>
+            <button type="button" onClick={()=>setForm(f=>({...f,vat:true}))} style={{ flex:1, padding:"9px", borderRadius:6, border:`1px solid ${form.vat?C.accent:C.border}`, background:form.vat?C.accent+"20":"transparent", color:form.vat?C.accent:C.muted, cursor:"pointer", fontFamily:"inherit", fontWeight:700 }}>Vat 7%</button>
+            <button type="button" onClick={()=>setForm(f=>({...f,vat:false}))} style={{ flex:1, padding:"9px", borderRadius:6, border:`1px solid ${!form.vat?C.accent:C.border}`, background:!form.vat?C.accent+"20":"transparent", color:!form.vat?C.accent:C.muted, cursor:"pointer", fontFamily:"inherit", fontWeight:700 }}>No Vat</button>
+          </div>
+        </Field>
       </Row2>}
+
+      {tab==="jobtype" && (() => {
+        const jd = form.jobDetail || {};
+        const updDetail = (key,val) => setForm(f => ({ ...f, jobDetail:{ ...(f.jobDetail||{}), [key]:val } }));
+        const tech = (data.printTechniques||[]).find(x=>x.id===jd.technique);
+        const inHouse = tech ? tech.inHouse : null;
+        const margin = (parseFloat(form.targetPrice)||0) - (parseFloat(jd.costPerUnit)||0);
+
+        const ServiceFields = () => (
+          <div style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:10, padding:14, marginTop:10 }}>
+            <Field label="เทคนิค">
+              <select style={s.select} value={jd.technique||""} onChange={e=>updDetail("technique",e.target.value)}>
+                <option value="">— เลือกเทคนิค —</option>
+                {(data.printTechniques||[]).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </Field>
+            {jd.technique==="dft" && <Row2>
+              <Field label="CMYK Coverage" half>
+                <select style={s.select} value={jd.coverageMode||"medium"} onChange={e=>updDetail("coverageMode",e.target.value)}>
+                  <option value="light">Light 50%</option><option value="medium">Medium 85%</option><option value="full">Full 95%</option>
+                </select>
+              </Field>
+              <Field label="Spot White (%)" half><input style={s.input} type="number" value={jd.spotWhite||85} onChange={e=>updDetail("spotWhite",e.target.value)}/></Field>
+            </Row2>}
+            {jd.technique==="sublimation" && <Row2>
+              <Field label="หน้าผ้า" half>
+                <select style={s.select} value={jd.fabricWidth||60} onChange={e=>updDetail("fabricWidth",e.target.value)}><option value={60}>60"</option><option value={70}>70"</option></select>
+              </Field>
+              <Field label="เรทราคา" half>
+                <select style={s.select} value={jd.subRate||80} onChange={e=>updDetail("subRate",e.target.value)}><option value={50}>฿50/หลา (ไม่ตัด Laser)</option><option value={80}>฿80/หลา (ตัด Laser)</option></select>
+              </Field>
+            </Row2>}
+            {jd.technique==="silk" && <Row2>
+              <Field label="ประเภทสี" half>
+                <select style={s.select} value={jd.silkType||"plastisol"} onChange={e=>updDetail("silkType",e.target.value)}>
+                  {SILK_TYPES.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}
+                </select>
+              </Field>
+              <Field label="จำนวนสี" half><input style={s.input} type="number" min={1} max={8} value={jd.silkColors||1} onChange={e=>updDetail("silkColors",e.target.value)}/></Field>
+            </Row2>}
+            {jd.technique==="dtg" && <Field label="สีผ้า">
+              <select style={s.select} value={jd.dtgDark?"dark":"light"} onChange={e=>updDetail("dtgDark",e.target.value==="dark")}>
+                <option value="light">ผ้าสีอ่อน</option><option value="dark">ผ้าสีดำ/เข้ม (+฿35 White Base)</option>
+              </select>
+            </Field>}
+            {jd.technique==="3dprint" && <Row2>
+              <Field label="ขนาดชิ้นงาน W×H×D (cm)" half><input style={s.input} placeholder="10×10×5" value={jd.printSize||""} onChange={e=>updDetail("printSize",e.target.value)}/></Field>
+              <Field label="วัสดุ" half>
+                <select style={s.select} value={jd.material||"PLA"} onChange={e=>updDetail("material",e.target.value)}><option>PLA</option><option>Resin</option><option>TPU</option></select>
+              </Field>
+              <Field label="เวลาพิมพ์โดยประมาณ (ชม.)" half><input style={s.input} type="number" value={jd.printHours||""} onChange={e=>updDetail("printHours",e.target.value)}/></Field>
+              <Field label="น้ำหนักวัสดุที่ใช้ (กรัม)" half><input style={s.input} type="number" value={jd.materialWeight||""} onChange={e=>updDetail("materialWeight",e.target.value)}/></Field>
+            </Row2>}
+            {(jd.technique==="uvdft"||jd.technique==="flexpu") && <div style={{ fontSize:13, color:C.muted, padding:"6px 0" }}>คำนวณอัตโนมัติจากขนาด/จำนวนในแท็บ "รายการ" — ไม่มีฟิลด์เพิ่มเติม</div>}
+
+            {tech && <div style={{ marginTop:10, padding:"8px 12px", borderRadius:8, background:inHouse?C.ok+"15":C.warn+"15", border:`1px solid ${inHouse?C.ok:C.warn}40` }}>
+              <span style={{ fontSize:13, fontWeight:700, color:inHouse?C.ok:C.warn }}>{inHouse?"🏠 ผลิตเองในบริษัท (In-house)":"🚚 ต้องจ้าง Supplier ภายนอก (Outsource)"}</span>
+            </div>}
+            {!inHouse && tech && <Field label="Supplier ผู้รับจ้าง" >
+              <select style={s.select} value={jd.supplierId||""} onChange={e=>updDetail("supplierId",e.target.value)}>
+                <option value="">— เลือก Supplier —</option>
+                {data.suppliers.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
+              </select>
+            </Field>}
+            <Field label="ราคาต้นทุน/ตัว (฿)"><input style={s.input} type="number" value={jd.costPerUnit||""} onChange={e=>updDetail("costPerUnit",e.target.value)}/></Field>
+          </div>
+        );
+
+        return <div>
+          <Field label="ประเภทงาน (Job Type)">
+            <Row2>
+              {JOB_TYPES.map(jt => (
+                <div key={jt.id} onClick={()=>setForm(f=>({...f,jobType:jt.id}))} style={{ flex:"0 0 calc(33% - 8px)", cursor:"pointer", padding:14, borderRadius:10, border:`2px solid ${form.jobType===jt.id?C.accent:C.border}`, background:form.jobType===jt.id?C.accent+"15":"transparent" }}>
+                  <div style={{ fontWeight:700, color:form.jobType===jt.id?C.accent:C.text, fontSize:14 }}>{jt.label}</div>
+                  <div style={{ fontSize:12, color:C.muted, marginTop:4 }}>{jt.desc}</div>
+                </div>
+              ))}
+            </Row2>
+          </Field>
+
+          {form.jobType==="oem_odm" && <div style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:10, padding:14, marginTop:10 }}>
+            <Field label="แหล่งที่มาแบบ">
+              <div style={{ display:"flex", gap:8 }}>
+                <button type="button" onClick={()=>updDetail("designSource","custom")} style={{ flex:1, padding:"8px", borderRadius:6, border:`1px solid ${jd.designSource==="custom"?C.accent:C.border}`, background:jd.designSource==="custom"?C.accent+"20":"transparent", color:jd.designSource==="custom"?C.accent:C.muted, cursor:"pointer", fontFamily:"inherit" }}>Custom (ลูกค้ากำหนดเอง)</button>
+                <button type="button" onClick={()=>updDetail("designSource","pattern")} style={{ flex:1, padding:"8px", borderRadius:6, border:`1px solid ${jd.designSource==="pattern"?C.accent:C.border}`, background:jd.designSource==="pattern"?C.accent+"20":"transparent", color:jd.designSource==="pattern"?C.accent:C.muted, cursor:"pointer", fontFamily:"inherit" }}>Pattern บริษัท</button>
+              </div>
+            </Field>
+            {jd.designSource==="pattern" && <Field label="เลือก Pattern">
+              <select style={s.select} value={jd.patternId||""} onChange={e=>updDetail("patternId",e.target.value)}>
+                <option value="">— เลือก Pattern —</option>
+                {data.patterns.map(p => <option key={p.id} value={p.id}>{p.styleCode||p.id} — {p.name}</option>)}
+              </select>
+            </Field>}
+            {jd.designSource==="custom" && <Field label="อัปโหลด Spec/แบบร่างลูกค้า">
+              <ImageUploadBlock value={jd.specImage} onChange={v=>updDetail("specImage",v)} label=""/>
+            </Field>}
+            <Row2>
+              <Field label="เนื้อผ้า" half>
+                <select style={s.select} value={jd.fabricId||""} onChange={e=>updDetail("fabricId",e.target.value)}>
+                  <option value="">— เลือกผ้า —</option>
+                  {data.fabrics.map(f => <option key={f.id} value={f.id}>{f.code||f.id} — {f.name}</option>)}
+                </select>
+              </Field>
+              <Field label="สี" half><input style={s.input} value={jd.colorNote||""} onChange={e=>updDetail("colorNote",e.target.value)}/></Field>
+              <Field label="Size Set" half><input style={s.input} value={jd.sizeSet||""} onChange={e=>updDetail("sizeSet",e.target.value)} placeholder="S,M,L,XL"/></Field>
+              <Field label="จำนวน Sample" half><input style={s.input} type="number" value={jd.sampleQty||""} onChange={e=>updDetail("sampleQty",e.target.value)}/></Field>
+              <Field label="วันที่ลูกค้าอนุมัติแบบ" half><input style={s.input} type="date" value={jd.approvalDate||""} onChange={e=>updDetail("approvalDate",e.target.value)}/></Field>
+            </Row2>
+            <Field label="Supplier (โรงงานผู้รับจ้างผลิต)">
+              <select style={s.select} value={jd.supplierId||""} onChange={e=>updDetail("supplierId",e.target.value)}>
+                <option value="">— เลือก Supplier —</option>
+                {data.suppliers.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
+              </select>
+            </Field>
+            <Field label="ราคาต้นทุนจาก Supplier (฿/ตัว)"><input style={s.input} type="number" value={jd.costPerUnit||""} onChange={e=>updDetail("costPerUnit",e.target.value)}/></Field>
+          </div>}
+
+          {form.jobType==="finished_goods" && <div style={{ background:"#060b16", border:`1px solid ${C.border}`, borderRadius:10, padding:14, marginTop:10 }}>
+            <Field label="เลือกสินค้าจาก Item Master">
+              <select style={s.select} value={jd.itemCode||""} onChange={e=>{
+                const item = (itemMaster||[]).find(i=>i.code===e.target.value);
+                updDetail("itemCode",e.target.value);
+                if (item) { updDetail("costPerUnit",item.cost); setForm(f=>({...f,targetPrice:item.sellPrice})); }
+              }}>
+                <option value="">— เลือกสินค้า —</option>
+                {(itemMaster||[]).map(i => <option key={i.code} value={i.code}>{i.code} — {i.name}</option>)}
+              </select>
+            </Field>
+            <label style={{ display:"flex", alignItems:"center", gap:8, marginTop:10, cursor:"pointer" }}>
+              <input type="checkbox" checked={!!jd.addPrint} onChange={e=>updDetail("addPrint",e.target.checked)}/>
+              <span style={{ fontSize:14, color:C.text }}>เพิ่มงานสกรีน/ปักเพิ่มเติม</span>
+            </label>
+            {jd.addPrint && <ServiceFields/>}
+          </div>}
+
+          {form.jobType==="service" && <ServiceFields/>}
+
+          {(jd.costPerUnit || form.targetPrice) && <div style={{ marginTop:14, padding:"10px 14px", background:C.accent+"10", border:`1px solid ${C.accent}30`, borderRadius:8, display:"flex", justifyContent:"space-between" }}>
+            <span style={{ fontSize:13, color:C.muted }}>ต้นทุน ฿{fmt(jd.costPerUnit||0)} → ขาย ฿{fmt(form.targetPrice||0)}</span>
+            <span style={{ fontWeight:700, color:margin>=0?C.ok:C.err }}>กำไร/ตัว ฿{fmt(margin)}</span>
+          </div>}
+        </div>;
+      })()}
 
       {tab==="slots" && <div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
